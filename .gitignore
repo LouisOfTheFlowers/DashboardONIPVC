@@ -1,0 +1,39 @@
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Editor
+.idea/
+.vscode/*
+!.vscode/settings.json
+
+# Local project folders
+alertasconfig/
+alertas
+tmp/
+temp/
+cache/
+build/
+dist/
+
+# Logs
+*.log
+*.out
+*.err
+
+# PHP / local runtime
+vendor/
+composer.phar
+.phpunit.result.cache
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Archives
+*.zip
+*.tar
+*.gz
+*.rar
