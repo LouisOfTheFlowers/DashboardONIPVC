@@ -1,8 +1,10 @@
 <?php
 declare(strict_types=1);
 
-$jsonPath = __DIR__ . DIRECTORY_SEPARATOR . 'alertas/alertsPresidencia.json';
-$configPath = __DIR__ . DIRECTORY_SEPARATOR . 'alertas' . DIRECTORY_SEPARATOR . 'alertsPresidenciaconfig.json';
+const ALERTS_CONFIG_DIR = __DIR__ . DIRECTORY_SEPARATOR . 'alertasconfig';
+
+$jsonPath = __DIR__ . DIRECTORY_SEPARATOR . 'alertas' . DIRECTORY_SEPARATOR . 'alertsPresidencia.json';
+$configPath = ALERTS_CONFIG_DIR . DIRECTORY_SEPARATOR . 'alertsPresidenciaconfig.json';
 
 if (!is_file($jsonPath)) {
     http_response_code(500);
@@ -10,67 +12,127 @@ if (!is_file($jsonPath)) {
     exit;
 }
 
-try {
-    $payload = json_decode(file_get_contents($jsonPath), true, 512, JSON_THROW_ON_ERROR);
-} catch (JsonException $exception) {
+$payload = loadJsonFile($jsonPath, 'alerts JSON');
+
+$dashboardProfiles = findDashboardProfiles($payload);
+$selectedProfileKey = isset($dashboardProfiles['presidencia'])
+    ? 'presidencia'
+    : (string) array_key_first($dashboardProfiles);
+
+if ($selectedProfileKey === '') {
     http_response_code(500);
-    echo 'Invalid JSON: ' . htmlspecialchars($exception->getMessage(), ENT_QUOTES, 'UTF-8');
+    echo 'Selected JSON does not contain a dashboard profile with grupos';
     exit;
 }
 
+$dashboardProfile = $dashboardProfiles[$selectedProfileKey];
+$grupos = is_array($dashboardProfile['grupos'] ?? null) ? $dashboardProfile['grupos'] : [];
+
 $alertsConfig = [];
 if (is_file($configPath)) {
-    try {
-        $alertsConfig = json_decode(file_get_contents($configPath), true, 512, JSON_THROW_ON_ERROR);
-    } catch (JsonException $exception) {
-        http_response_code(500);
-        echo 'Invalid config JSON: ' . htmlspecialchars($exception->getMessage(), ENT_QUOTES, 'UTF-8');
-        exit;
-    }
+    $alertsConfig = loadJsonFile($configPath, 'config JSON');
 }
-
-$presidencia = $payload['presidencia'] ?? [];
-$grupos = $presidencia['grupos'] ?? [];
 
 function e(string $value): string
 {
     return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
 }
 
+function loadJsonFile(string $path, string $label): array
+{
+    try {
+        $contents = file_get_contents($path);
+
+        if ($contents === false) {
+            throw new RuntimeException('Could not read file');
+        }
+
+        $decoded = json_decode($contents, true, 512, JSON_THROW_ON_ERROR);
+    } catch (JsonException | RuntimeException $exception) {
+        http_response_code(500);
+        echo 'Invalid ' . e($label) . ': ' . e($exception->getMessage());
+        exit;
+    }
+
+    return is_array($decoded) ? $decoded : [];
+}
+
+function findDashboardProfiles(array $payload): array
+{
+    $profiles = [];
+
+    foreach ($payload as $key => $value) {
+        if (is_array($value) && is_array($value['grupos'] ?? null)) {
+            $profiles[(string) $key] = $value;
+        }
+    }
+
+    return $profiles;
+}
+
+function findGroup(array $groups, array $needles): array
+{
+    foreach ($needles as $needle) {
+        if (isset($groups[$needle]) && is_array($groups[$needle])) {
+            return $groups[$needle];
+        }
+    }
+
+    foreach ($groups as $key => $group) {
+        if (!is_array($group)) {
+            continue;
+        }
+
+        $normalizedKey = normalizeState((string) $key);
+
+        foreach ($needles as $needle) {
+            if (str_contains($normalizedKey, normalizeState($needle))) {
+                return $group;
+            }
+        }
+    }
+
+    return [];
+}
+
 function buildUoOrder(array ...$datasets): array
 {
-    $preferred = ['ESA', 'ESCE', 'ESDL', 'ESE', 'ESS', 'ESTG'];
-    $lookup = array_fill_keys($preferred, true);
+    $uoOrder = [];
+    $lookup = [];
 
     foreach ($datasets as $dataset) {
         foreach ($dataset as $row) {
             $uo = $row['uo'] ?? null;
             if (is_string($uo) && $uo !== '' && !isset($lookup[$uo])) {
-                $preferred[] = $uo;
+                $uoOrder[] = $uo;
                 $lookup[$uo] = true;
             }
         }
     }
 
-    return $preferred;
+    sort($uoOrder, SORT_NATURAL | SORT_FLAG_CASE);
+
+    return $uoOrder;
 }
 
 function buildSemesterOrder(array ...$datasets): array
 {
-    $preferred = ['S1', 'S2'];
-    $lookup = array_fill_keys($preferred, true);
+    $semesterOrder = [];
+    $lookup = [];
 
     foreach ($datasets as $dataset) {
         foreach ($dataset as $row) {
             $semester = $row['semestre'] ?? null;
             if (is_string($semester) && $semester !== '' && !isset($lookup[$semester])) {
-                $preferred[] = $semester;
+                $semesterOrder[] = $semester;
                 $lookup[$semester] = true;
             }
         }
     }
 
-    return $preferred;
+    sort($semesterOrder, SORT_NATURAL | SORT_FLAG_CASE);
+
+    return $semesterOrder;
 }
 
 function initMatrix(array $uoOrder, array $keys): array
@@ -119,6 +181,11 @@ function filterRows(array $dataset, string $semesterFilter = '', string $uoFilte
             return true;
         }
     ));
+}
+
+function titleWithSemester(string $title, string $semester): string
+{
+    return $semester !== '' ? $title . ' - ' . $semester : $title;
 }
 
 function lookupConfigEntry(array $group, string $key): array
@@ -212,11 +279,23 @@ function buildDotStyle(string $color): string
     return 'background:' . expandHexColor($color) . ';';
 }
 
-$aulasDados = $grupos['aulas_por_lecionar_pres']['dados'] ?? [];
-$sumariosDados = $grupos['sumarios_por_publicar_pres']['dados'] ?? [];
-$pucDados = $grupos['resumo_estados_puc_pres']['dados'] ?? [];
-$rucDados = $grupos['resumo_estados_ruc_pres']['dados'] ?? [];
-$ucsSemDocenteDados = $grupos['ucs_sem_docente']['dados'] ?? [];
+$aulasGroup = findGroup($grupos, ['aulas_por_lecionar']);
+$sumariosGroup = findGroup($grupos, ['sumarios_por_publicar']);
+$pucGroup = findGroup($grupos, ['resumo_estados_puc']);
+$rucGroup = findGroup($grupos, ['resumo_estados_ruc']);
+$ucsSemDocenteGroup = findGroup($grupos, ['ucs_sem_docente']);
+
+$aulasDados = is_array($aulasGroup['dados'] ?? null) ? $aulasGroup['dados'] : [];
+$sumariosDados = is_array($sumariosGroup['dados'] ?? null) ? $sumariosGroup['dados'] : [];
+$pucDados = is_array($pucGroup['dados'] ?? null) ? $pucGroup['dados'] : [];
+$rucDados = is_array($rucGroup['dados'] ?? null) ? $rucGroup['dados'] : [];
+$ucsSemDocenteDados = is_array($ucsSemDocenteGroup['dados'] ?? null) ? $ucsSemDocenteGroup['dados'] : [];
+
+$aulasTitle = (string) ($aulasGroup['ds'] ?? 'Aulas por Lecionar');
+$sumariosTitle = (string) ($sumariosGroup['ds'] ?? 'Sumários por Publicar');
+$pucTitle = (string) ($pucGroup['ds'] ?? 'Resumo Estados PUCs');
+$rucTitle = (string) ($rucGroup['ds'] ?? 'Resumo Estados RUCs');
+$ucsSemDocenteTitle = (string) ($ucsSemDocenteGroup['ds'] ?? 'UCs sem docente');
 
 $semesterOrder = buildSemesterOrder($aulasDados, $sumariosDados);
 $allUoOrder = buildUoOrder($aulasDados, $sumariosDados);
@@ -240,6 +319,9 @@ $uoOrder = $selectedUo !== ''
 
 $defaultSemesterFilter = $selectedSemester !== '' ? $selectedSemester : 'Todos os Semestres';
 $defaultUoFilter = $selectedUo !== '' ? $selectedUo : 'Todas as UOs';
+$aulasDisplayTitle = titleWithSemester($aulasTitle, $selectedSemester);
+$sumariosDisplayTitle = titleWithSemester($sumariosTitle, $selectedSemester);
+$cardSemesterSuffix = $selectedSemester !== '' ? ' - ' . $selectedSemester : '';
 
 $aulasPorUo = initMatrix($uoOrder, ['por_lecionar', 'nao_lecionadas', 'nao_justificadas']);
 $aulasTotals = ['por_lecionar' => 0, 'nao_lecionadas' => 0, 'nao_justificadas' => 0];
@@ -359,7 +441,7 @@ $ucsSemDocenteRule = findRangeRule(
 );
 $ucsSemDocenteTitleStyle = buildStateBoxStyle((string) ($ucsSemDocenteRule['color'] ?? ''));
 
-$pageTitle = (string) ($presidencia['ds_grupo'] ?? 'Presidencia');
+$pageTitle = (string) ($dashboardProfile['ds_grupo'] ?? 'Presidencia');
 ?>
 <!DOCTYPE html>
 <html lang="pt">
@@ -1193,20 +1275,20 @@ $pageTitle = (string) ($presidencia['ds_grupo'] ?? 'Presidencia');
                                 <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
                                 <path d="M6.5 2H20v15H6.5A2.5 2.5 0 0 0 4 19.5V4.5A2.5 2.5 0 0 1 6.5 2z"></path>
                             </svg>
-                            Aulas por Lecionar
+                            <?= e($aulasDisplayTitle) ?>
                         </h2>
 
                         <div class="stat-cards three">
                             <div class="stat-card card-blue"<?= ($style = buildCardStyle((string) ($aulasCardMeta['por_lecionar']['color'] ?? ''))) !== '' ? ' style="' . e($style) . '"' : '' ?>>
-                                <span>Por Lecionar</span>
+                                <span>Por Lecionar<?= e($cardSemesterSuffix) ?></span>
                                 <strong><?= number_format($aulasTotals['por_lecionar'], 0, ',', '.') ?></strong>
                             </div>
                             <div class="stat-card card-red"<?= ($style = buildCardStyle((string) ($aulasCardMeta['nao_lecionadas']['color'] ?? ''))) !== '' ? ' style="' . e($style) . '"' : '' ?>>
-                                <span>N&atilde;o Lecionadas</span>
+                                <span>N&atilde;o Lecionadas<?= e($cardSemesterSuffix) ?></span>
                                 <strong><?= number_format($aulasTotals['nao_lecionadas'], 0, ',', '.') ?></strong>
                             </div>
                             <div class="stat-card card-orange"<?= ($style = buildCardStyle((string) ($aulasCardMeta['nao_justificadas']['color'] ?? ''))) !== '' ? ' style="' . e($style) . '"' : '' ?>>
-                                <span>N&atilde;o Justificadas</span>
+                                <span>N&atilde;o Justificadas<?= e($cardSemesterSuffix) ?></span>
                                 <strong><?= number_format($aulasTotals['nao_justificadas'], 0, ',', '.') ?></strong>
                             </div>
                         </div>
@@ -1254,16 +1336,16 @@ $pageTitle = (string) ($presidencia['ds_grupo'] ?? 'Presidencia');
                                 <path d="M8 13h8"></path>
                                 <path d="M8 17h8"></path>
                             </svg>
-                            Sum&aacute;rios por Publicar
+                            <?= e($sumariosDisplayTitle) ?>
                         </h2>
 
                         <div class="stat-cards two">
                             <div class="stat-card card-green"<?= ($style = buildCardStyle((string) ($sumariosCardMeta['elaborados']['color'] ?? ''))) !== '' ? ' style="' . e($style) . '"' : '' ?>>
-                                <span>Elaborados</span>
+                                <span>Elaborados<?= e($cardSemesterSuffix) ?></span>
                                 <strong><?= number_format($sumariosTotals['elaborados'], 0, ',', '.') ?></strong>
                             </div>
                             <div class="stat-card card-red"<?= ($style = buildCardStyle((string) ($sumariosCardMeta['nao_elaborados']['color'] ?? ''))) !== '' ? ' style="' . e($style) . '"' : '' ?>>
-                                <span>N&atilde;o Elaborados</span>
+                                <span>N&atilde;o Elaborados<?= e($cardSemesterSuffix) ?></span>
                                 <strong><?= number_format($sumariosTotals['nao_elaborados'], 0, ',', '.') ?></strong>
                             </div>
                         </div>
@@ -1308,7 +1390,7 @@ $pageTitle = (string) ($presidencia['ds_grupo'] ?? 'Presidencia');
                                     <path d="M9 11l3 3L22 4"></path>
                                     <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
                                 </svg>
-                                Resumo Estados PUCs
+                                <?= e($pucTitle) ?>
                             </h2>
 
                             <div class="state-list">
@@ -1330,7 +1412,7 @@ $pageTitle = (string) ($presidencia['ds_grupo'] ?? 'Presidencia');
                                     <path d="M9 11l3 3L22 4"></path>
                                     <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
                                 </svg>
-                                Resumo Estados RUCs
+                                <?= e($rucTitle) ?>
                             </h2>
 
                             <div class="state-list">
@@ -1354,7 +1436,7 @@ $pageTitle = (string) ($presidencia['ds_grupo'] ?? 'Presidencia');
                                 <path d="M12 8v4"></path>
                                 <path d="M12 16h.01"></path>
                             </svg>
-                            UCs sem docente <small<?= $ucsSemDocenteTitleStyle !== '' ? ' style="' . e($ucsSemDocenteTitleStyle) . 'padding:4px 8px;border-radius:999px;margin-left:6px;display:inline-block;"' : '' ?>>(<?= number_format($totalUcsSemDocente, 0, ',', '.') ?>)</small>
+                            <?= e($ucsSemDocenteTitle) ?> <small<?= $ucsSemDocenteTitleStyle !== '' ? ' style="' . e($ucsSemDocenteTitleStyle) . 'padding:4px 8px;border-radius:999px;margin-left:6px;display:inline-block;"' : '' ?>>(<?= number_format($totalUcsSemDocente, 0, ',', '.') ?>)</small>
                         </h2>
 
                         <div class="ucs-shell">
