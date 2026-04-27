@@ -97,15 +97,25 @@ function findGroup(array $groups, array $needles): array
 
 function buildUoOrder(array ...$datasets): array
 {
+    return buildFieldOrder('uo', ...$datasets);
+}
+
+function buildSemesterOrder(array ...$datasets): array
+{
+    return buildFieldOrder('semestre', ...$datasets);
+}
+
+function buildFieldOrder(string $field, array ...$datasets): array
+{
     $uoOrder = [];
     $lookup = [];
 
     foreach ($datasets as $dataset) {
         foreach ($dataset as $row) {
-            $uo = $row['uo'] ?? null;
-            if (is_string($uo) && $uo !== '' && !isset($lookup[$uo])) {
-                $uoOrder[] = $uo;
-                $lookup[$uo] = true;
+            $value = $row[$field] ?? null;
+            if ((is_string($value) || is_int($value)) && (string) $value !== '' && !isset($lookup[(string) $value])) {
+                $uoOrder[] = (string) $value;
+                $lookup[(string) $value] = true;
             }
         }
     }
@@ -115,24 +125,31 @@ function buildUoOrder(array ...$datasets): array
     return $uoOrder;
 }
 
-function buildSemesterOrder(array ...$datasets): array
+function buildFieldOrderFromPanelDatasets(array $panelDatasets, string $fieldKey): array
 {
-    $semesterOrder = [];
+    $values = [];
     $lookup = [];
 
-    foreach ($datasets as $dataset) {
-        foreach ($dataset as $row) {
-            $semester = $row['semestre'] ?? null;
-            if (is_string($semester) && $semester !== '' && !isset($lookup[$semester])) {
-                $semesterOrder[] = $semester;
-                $lookup[$semester] = true;
+    foreach ($panelDatasets as $panelDataset) {
+        $field = (string) ($panelDataset[$fieldKey] ?? '');
+        $rows = is_array($panelDataset['rows'] ?? null) ? $panelDataset['rows'] : [];
+
+        if ($field === '') {
+            continue;
+        }
+
+        foreach ($rows as $row) {
+            $value = $row[$field] ?? null;
+            if ((is_string($value) || is_int($value)) && (string) $value !== '' && !isset($lookup[(string) $value])) {
+                $values[] = (string) $value;
+                $lookup[(string) $value] = true;
             }
         }
     }
 
-    sort($semesterOrder, SORT_NATURAL | SORT_FLAG_CASE);
+    sort($values, SORT_NATURAL | SORT_FLAG_CASE);
 
-    return $semesterOrder;
+    return $values;
 }
 
 function initMatrix(array $uoOrder, array $keys): array
@@ -165,16 +182,22 @@ function normalizeState(string $value): string
     return strtolower(strtr($value, $map));
 }
 
-function filterRows(array $dataset, string $semesterFilter = '', string $uoFilter = ''): array
+function filterRows(
+    array $dataset,
+    string $semesterFilter = '',
+    string $uoFilter = '',
+    string $semesterField = 'semestre',
+    string $uoField = 'uo'
+): array
 {
     return array_values(array_filter(
         $dataset,
-        static function (array $row) use ($semesterFilter, $uoFilter): bool {
-            if ($semesterFilter !== '' && (($row['semestre'] ?? '') !== $semesterFilter)) {
+        static function (array $row) use ($semesterFilter, $uoFilter, $semesterField, $uoField): bool {
+            if ($semesterFilter !== '' && (string) ($row[$semesterField] ?? '') !== $semesterFilter) {
                 return false;
             }
 
-            if ($uoFilter !== '' && (($row['uo'] ?? '') !== $uoFilter)) {
+            if ($uoFilter !== '' && (string) ($row[$uoField] ?? '') !== $uoFilter) {
                 return false;
             }
 
@@ -279,26 +302,245 @@ function buildDotStyle(string $color): string
     return 'background:' . expandHexColor($color) . ';';
 }
 
-$aulasGroup = findGroup($grupos, ['aulas_por_lecionar']);
-$sumariosGroup = findGroup($grupos, ['sumarios_por_publicar']);
-$pucGroup = findGroup($grupos, ['resumo_estados_puc']);
-$rucGroup = findGroup($grupos, ['resumo_estados_ruc']);
-$ucsSemDocenteGroup = findGroup($grupos, ['ucs_sem_docente']);
+function buildTextColorStyle(string $color): string
+{
+    if (!isHexColor($color)) {
+        return '';
+    }
 
-$aulasDados = is_array($aulasGroup['dados'] ?? null) ? $aulasGroup['dados'] : [];
-$sumariosDados = is_array($sumariosGroup['dados'] ?? null) ? $sumariosGroup['dados'] : [];
-$pucDados = is_array($pucGroup['dados'] ?? null) ? $pucGroup['dados'] : [];
-$rucDados = is_array($rucGroup['dados'] ?? null) ? $rucGroup['dados'] : [];
-$ucsSemDocenteDados = is_array($ucsSemDocenteGroup['dados'] ?? null) ? $ucsSemDocenteGroup['dados'] : [];
+    return 'color:' . expandHexColor($color) . ';';
+}
 
-$aulasTitle = (string) ($aulasGroup['ds'] ?? 'Aulas por Lecionar');
-$sumariosTitle = (string) ($sumariosGroup['ds'] ?? 'Sumários por Publicar');
-$pucTitle = (string) ($pucGroup['ds'] ?? 'Resumo Estados PUCs');
-$rucTitle = (string) ($rucGroup['ds'] ?? 'Resumo Estados RUCs');
-$ucsSemDocenteTitle = (string) ($ucsSemDocenteGroup['ds'] ?? 'UCs sem docente');
+function resolveColor(array $config, string $color, string $paletteKey = 'card_colors'): string
+{
+    if ($color === '') {
+        return '';
+    }
 
-$semesterOrder = buildSemesterOrder($aulasDados, $sumariosDados);
-$allUoOrder = buildUoOrder($aulasDados, $sumariosDados);
+    if (isHexColor($color)) {
+        return $color;
+    }
+
+    $palette = is_array($config[$paletteKey] ?? null) ? $config[$paletteKey] : [];
+    $entry = $palette[$color] ?? null;
+
+    if (is_string($entry)) {
+        return $entry;
+    }
+
+    if (is_array($entry)) {
+        return (string) ($entry['color'] ?? '');
+    }
+
+    $fallbackPalette = [
+        'success' => '#22c55e',
+        'warning' => '#eab308',
+        'critical' => '#ef4444',
+        'danger' => '#dc2626',
+        'info' => '#2563eb',
+    ];
+
+    if (isset($fallbackPalette[$color])) {
+        return $fallbackPalette[$color];
+    }
+
+    return $color;
+}
+
+function resolveSchoolColor(array $schoolColors, string $school): string
+{
+    $entry = lookupConfigEntry($schoolColors, $school);
+    if ($entry !== []) {
+        return (string) ($entry['color'] ?? '');
+    }
+
+    $color = $schoolColors[$school] ?? '';
+
+    return is_string($color) ? $color : '';
+}
+
+function configuredCardPanelConfigs(array $config): array
+{
+    $panels = is_array($config['card_panels'] ?? null) ? $config['card_panels'] : [];
+
+    return array_values(array_filter($panels, 'is_array'));
+}
+
+function panelFilterDatasets(array $panelConfigs, array $groups): array
+{
+    $datasets = [];
+
+    foreach ($panelConfigs as $panelConfig) {
+        $groupKey = (string) ($panelConfig['group'] ?? '');
+        if ($groupKey === '') {
+            continue;
+        }
+
+        $group = findGroup($groups, [$groupKey]);
+        $rows = is_array($group['dados'] ?? null) ? $group['dados'] : [];
+
+        $datasets[] = [
+            'rows' => $rows,
+            'semester_field' => (string) ($panelConfig['semester_field'] ?? 'semestre'),
+            'uo_field' => (string) ($panelConfig['uo_field'] ?? 'uo'),
+        ];
+    }
+
+    return $datasets;
+}
+
+function itemStateValues(array $item): array
+{
+    $value = $item['state_values'] ?? ($item['values'] ?? ($item['state_value'] ?? ($item['value'] ?? null)));
+
+    return is_array($value) ? $value : [$value];
+}
+
+function valueMatches(mixed $actual, array $expectedValues): bool
+{
+    foreach ($expectedValues as $expected) {
+        if ($actual !== null && (string) $actual === (string) $expected) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function normalizeCardPanelItems(array $panelConfig, array $config): array
+{
+    $items = is_array($panelConfig['items'] ?? null) ? $panelConfig['items'] : [];
+    $configGroupKey = (string) ($panelConfig['config_group'] ?? '');
+    $configGroup = $configGroupKey !== '' && is_array($config[$configGroupKey] ?? null) ? $config[$configGroupKey] : [];
+    $normalized = [];
+
+    foreach ($items as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+
+        $key = (string) ($item['key'] ?? '');
+        if ($key === '') {
+            $key = normalizeState((string) ($item['label'] ?? $item['source_label'] ?? 'item_' . count($normalized)));
+        }
+
+        $sourceLabel = (string) ($item['source_label'] ?? $item['label'] ?? '');
+        $configEntry = $sourceLabel !== '' ? lookupConfigEntry($configGroup, $sourceLabel) : [];
+        $label = trim((string) ($item['label'] ?? $configEntry['label'] ?? $sourceLabel));
+        $color = resolveColor($config, (string) ($item['color'] ?? $configEntry['color'] ?? ''), 'card_colors');
+
+        $normalized[] = [
+            'key' => $key,
+            'label' => $label !== '' ? $label : $key,
+            'source_label' => $sourceLabel,
+            'state_values' => itemStateValues($item),
+            'color' => $color,
+            'empty_display' => (string) ($item['empty_display'] ?? 'zero'),
+        ];
+    }
+
+    return $normalized;
+}
+
+function buildCardPanels(
+    array $panelConfigs,
+    array $groups,
+    array $config,
+    string $selectedSemester,
+    string $selectedUo
+): array {
+    $panels = [];
+
+    foreach ($panelConfigs as $panelConfig) {
+        $groupKey = (string) ($panelConfig['group'] ?? '');
+        if ($groupKey === '') {
+            continue;
+        }
+
+        $group = findGroup($groups, [$groupKey]);
+        $rows = is_array($group['dados'] ?? null) ? $group['dados'] : [];
+        $semesterField = (string) ($panelConfig['semester_field'] ?? 'semestre');
+        $uoField = (string) ($panelConfig['uo_field'] ?? 'uo');
+        $countField = (string) ($panelConfig['count_field'] ?? 'count');
+        $stateField = (string) ($panelConfig['state_field'] ?? '');
+        $labelField = (string) ($panelConfig['label_field'] ?? '');
+        $items = normalizeCardPanelItems($panelConfig, $config);
+
+        if ($items === []) {
+            continue;
+        }
+
+        $rows = filterRows($rows, $selectedSemester, $selectedUo, $semesterField, $uoField);
+        $itemKeys = array_column($items, 'key');
+        $totals = array_fill_keys($itemKeys, 0);
+        $rowOrder = buildFieldOrder($uoField, $rows);
+        $rowsByUo = initMatrix($rowOrder, $itemKeys);
+
+        foreach ($rows as $row) {
+            $rowUo = (string) ($row[$uoField] ?? '');
+            $count = (int) ($row[$countField] ?? 0);
+            $stateValue = $stateField !== '' ? ($row[$stateField] ?? null) : null;
+            $labelValue = $labelField !== '' ? ($row[$labelField] ?? null) : null;
+
+            foreach ($items as $item) {
+                $matchesState = valueMatches($stateValue, $item['state_values']);
+                $matchesLabel = $item['source_label'] !== '' && $labelValue !== null
+                    && normalizeState((string) $labelValue) === normalizeState((string) $item['source_label']);
+
+                if (!$matchesState && !$matchesLabel) {
+                    continue;
+                }
+
+                $totals[$item['key']] += $count;
+
+                if ($rowUo !== '') {
+                    if (!isset($rowsByUo[$rowUo])) {
+                        $rowsByUo[$rowUo] = array_fill_keys($itemKeys, 0);
+                        $rowOrder[] = $rowUo;
+                    }
+
+                    $rowsByUo[$rowUo][$item['key']] += $count;
+                }
+            }
+        }
+
+        $title = trim((string) ($panelConfig['title'] ?? ''));
+        $panels[] = [
+            'title' => titleWithSemester($title !== '' ? $title : (string) ($group['ds'] ?? $groupKey), $selectedSemester),
+            'icon' => (string) ($panelConfig['icon'] ?? 'chart'),
+            'items' => $items,
+            'totals' => $totals,
+            'rows_by_uo' => $rowsByUo,
+            'uo_order' => $rowOrder,
+            'show_table' => (bool) ($panelConfig['show_table'] ?? true) && $rowOrder !== [],
+        ];
+    }
+
+    return $panels;
+}
+
+function formatMetricValue(int $value, string $emptyDisplay = 'zero'): string
+{
+    if ($value === 0 && $emptyDisplay === 'dash') {
+        return '&mdash;';
+    }
+
+    return number_format($value, 0, ',', '.');
+}
+
+function panelIconSvg(string $icon): string
+{
+    if ($icon === 'document') {
+        return '<svg class="title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M8 13h8"></path><path d="M8 17h8"></path></svg>';
+    }
+
+    return '<svg class="title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v15H6.5A2.5 2.5 0 0 0 4 19.5V4.5A2.5 2.5 0 0 1 6.5 2z"></path></svg>';
+}
+
+$cardPanelConfigs = configuredCardPanelConfigs($alertsConfig);
+$panelDatasets = panelFilterDatasets($cardPanelConfigs, $grupos);
+$semesterOrder = buildFieldOrderFromPanelDatasets($panelDatasets, 'semester_field');
+$allUoOrder = buildFieldOrderFromPanelDatasets($panelDatasets, 'uo_field');
 
 $selectedSemester = trim((string) ($_GET['semester'] ?? ''));
 if ($selectedSemester !== '' && !in_array($selectedSemester, $semesterOrder, true)) {
@@ -310,78 +552,24 @@ if ($selectedUo !== '' && !in_array($selectedUo, $allUoOrder, true)) {
     $selectedUo = '';
 }
 
-$aulasDados = filterRows($aulasDados, $selectedSemester, $selectedUo);
-$sumariosDados = filterRows($sumariosDados, $selectedSemester, $selectedUo);
-
-$uoOrder = $selectedUo !== ''
-    ? [$selectedUo]
-    : buildUoOrder($aulasDados, $sumariosDados);
-
 $defaultSemesterFilter = $selectedSemester !== '' ? $selectedSemester : 'Todos os Semestres';
 $defaultUoFilter = $selectedUo !== '' ? $selectedUo : 'Todas as UOs';
-$aulasDisplayTitle = titleWithSemester($aulasTitle, $selectedSemester);
-$sumariosDisplayTitle = titleWithSemester($sumariosTitle, $selectedSemester);
-$cardSemesterSuffix = $selectedSemester !== '' ? ' - ' . $selectedSemester : '';
+$cardPanels = buildCardPanels($cardPanelConfigs, $grupos, $alertsConfig, $selectedSemester, $selectedUo);
+$schoolColors = is_array($alertsConfig['school_colors'] ?? null) ? $alertsConfig['school_colors'] : [];
 
-$aulasPorUo = initMatrix($uoOrder, ['por_lecionar', 'nao_lecionadas', 'nao_justificadas']);
-$aulasTotals = ['por_lecionar' => 0, 'nao_lecionadas' => 0, 'nao_justificadas' => 0];
+$pucGroup = findGroup($grupos, ['resumo_estados_puc']);
+$rucGroup = findGroup($grupos, ['resumo_estados_ruc']);
+$ucsSemDocenteGroup = findGroup($grupos, ['ucs_sem_docente']);
 
-foreach ($aulasDados as $row) {
-    $uo = $row['uo'] ?? '';
-    $count = (int) ($row['num_aulas'] ?? 0);
-    $estado = (int) ($row['id_estado'] ?? 0);
+$pucDados = is_array($pucGroup['dados'] ?? null) ? $pucGroup['dados'] : [];
+$rucDados = is_array($rucGroup['dados'] ?? null) ? $rucGroup['dados'] : [];
+$ucsSemDocenteDados = is_array($ucsSemDocenteGroup['dados'] ?? null) ? $ucsSemDocenteGroup['dados'] : [];
 
-    if (!isset($aulasPorUo[$uo])) {
-        $aulasPorUo[$uo] = ['por_lecionar' => 0, 'nao_lecionadas' => 0, 'nao_justificadas' => 0];
-    }
+$pucTitle = (string) ($pucGroup['ds'] ?? 'Resumo Estados PUCs');
+$rucTitle = (string) ($rucGroup['ds'] ?? 'Resumo Estados RUCs');
+$ucsSemDocenteTitle = (string) ($ucsSemDocenteGroup['ds'] ?? 'UCs sem docente');
 
-    if ($estado === 1) {
-        $aulasPorUo[$uo]['por_lecionar'] += $count;
-        $aulasTotals['por_lecionar'] += $count;
-    } elseif ($estado === 3) {
-        $aulasPorUo[$uo]['nao_lecionadas'] += $count;
-        $aulasTotals['nao_lecionadas'] += $count;
-    } elseif ($estado === 7) {
-        $aulasPorUo[$uo]['nao_justificadas'] += $count;
-        $aulasTotals['nao_justificadas'] += $count;
-    }
-}
-
-$sumariosPorUo = initMatrix($uoOrder, ['elaborados', 'nao_elaborados']);
-$sumariosTotals = ['elaborados' => 0, 'nao_elaborados' => 0];
-
-foreach ($sumariosDados as $row) {
-    $uo = $row['uo'] ?? '';
-    $count = (int) ($row['num_aulas'] ?? 0);
-    $estado = (int) ($row['id_estado_sumario'] ?? 0);
-
-    if (!isset($sumariosPorUo[$uo])) {
-        $sumariosPorUo[$uo] = ['elaborados' => 0, 'nao_elaborados' => 0];
-    }
-
-    if ($estado === 2) {
-        $sumariosPorUo[$uo]['elaborados'] += $count;
-        $sumariosTotals['elaborados'] += $count;
-    } elseif ($estado === 1) {
-        $sumariosPorUo[$uo]['nao_elaborados'] += $count;
-        $sumariosTotals['nao_elaborados'] += $count;
-    }
-}
-
-$descricaoConfig = is_array($alertsConfig['descricao'] ?? null) ? $alertsConfig['descricao'] : [];
-$descricaoEstadoConfig = is_array($alertsConfig['descricao_estado'] ?? null) ? $alertsConfig['descricao_estado'] : [];
 $estadoConfig = is_array($alertsConfig['estado'] ?? null) ? $alertsConfig['estado'] : [];
-
-$aulasCardMeta = [
-    'por_lecionar' => lookupConfigEntry($descricaoConfig, 'Por lecionar'),
-    'nao_lecionadas' => lookupConfigEntry($descricaoConfig, 'Não lecionada'),
-    'nao_justificadas' => lookupConfigEntry($descricaoConfig, 'Não Justificada'),
-];
-
-$sumariosCardMeta = [
-    'elaborados' => lookupConfigEntry($descricaoEstadoConfig, 'Elaborado'),
-    'nao_elaborados' => lookupConfigEntry($descricaoEstadoConfig, 'Não Elaborado'),
-];
 
 $pucStates = [];
 foreach ($pucDados as $row) {
@@ -831,6 +1019,7 @@ $pageTitle = (string) ($dashboardProfile['ds_grupo'] ?? 'Presidencia');
 
         .stat-cards {
             display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
             gap: 18px;
             margin-bottom: 24px;
         }
@@ -1269,119 +1458,64 @@ $pageTitle = (string) ($dashboardProfile['ds_grupo'] ?? 'Presidencia');
                     </div>
 
                     <div class="main-grid">
-                    <section class="panel">
-                        <h2 class="panel-title">
-                            <svg class="title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-                                <path d="M6.5 2H20v15H6.5A2.5 2.5 0 0 0 4 19.5V4.5A2.5 2.5 0 0 1 6.5 2z"></path>
-                            </svg>
-                            <?= e($aulasDisplayTitle) ?>
-                        </h2>
+                    <?php foreach ($cardPanels as $panel): ?>
+                        <section class="panel">
+                            <h2 class="panel-title">
+                                <?= panelIconSvg((string) ($panel['icon'] ?? 'chart')) ?>
+                                <?= e((string) $panel['title']) ?>
+                            </h2>
 
-                        <div class="stat-cards three">
-                            <div class="stat-card card-blue"<?= ($style = buildCardStyle((string) ($aulasCardMeta['por_lecionar']['color'] ?? ''))) !== '' ? ' style="' . e($style) . '"' : '' ?>>
-                                <span>Por Lecionar<?= e($cardSemesterSuffix) ?></span>
-                                <strong><?= number_format($aulasTotals['por_lecionar'], 0, ',', '.') ?></strong>
+                            <div class="stat-cards">
+                                <?php foreach ($panel['items'] as $item): ?>
+                                    <div class="stat-card"<?= ($style = buildCardStyle((string) ($item['color'] ?? ''))) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                        <span><?= e((string) $item['label']) ?></span>
+                                        <strong><?= number_format((int) ($panel['totals'][$item['key']] ?? 0), 0, ',', '.') ?></strong>
+                                    </div>
+                                <?php endforeach; ?>
                             </div>
-                            <div class="stat-card card-red"<?= ($style = buildCardStyle((string) ($aulasCardMeta['nao_lecionadas']['color'] ?? ''))) !== '' ? ' style="' . e($style) . '"' : '' ?>>
-                                <span>N&atilde;o Lecionadas<?= e($cardSemesterSuffix) ?></span>
-                                <strong><?= number_format($aulasTotals['nao_lecionadas'], 0, ',', '.') ?></strong>
-                            </div>
-                            <div class="stat-card card-orange"<?= ($style = buildCardStyle((string) ($aulasCardMeta['nao_justificadas']['color'] ?? ''))) !== '' ? ' style="' . e($style) . '"' : '' ?>>
-                                <span>N&atilde;o Justificadas<?= e($cardSemesterSuffix) ?></span>
-                                <strong><?= number_format($aulasTotals['nao_justificadas'], 0, ',', '.') ?></strong>
-                            </div>
-                        </div>
 
-                        <div class="table-shell">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Unidade Org&acirc;nica</th>
-                                        <th class="col-blue">Por Lecionar</th>
-                                        <th class="col-red">N&atilde;o Lecionadas</th>
-                                        <th class="col-orange">N&atilde;o Justificadas</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($uoOrder as $uo): ?>
-                                        <tr>
-                                            <td>
-                                                <div class="uo-cell">
-                                                    <svg class="icon-house" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                                        <path d="M3 21h18"></path>
-                                                        <path d="M5 21V8l7-5 7 5v13"></path>
-                                                        <path d="M9 21v-6h6v6"></path>
-                                                        <path d="M9 9h.01"></path>
-                                                        <path d="M15 9h.01"></path>
-                                                    </svg>
-                                                    <?= e($uo) ?>
-                                                </div>
-                                            </td>
-                                            <td class="col-blue"><?= number_format($aulasPorUo[$uo]['por_lecionar'] ?? 0, 0, ',', '.') ?></td>
-                                            <td class="col-red"><?= ($aulasPorUo[$uo]['nao_lecionadas'] ?? 0) > 0 ? number_format($aulasPorUo[$uo]['nao_lecionadas'], 0, ',', '.') : '&mdash;' ?></td>
-                                            <td class="col-orange"><?= ($aulasPorUo[$uo]['nao_justificadas'] ?? 0) > 0 ? number_format($aulasPorUo[$uo]['nao_justificadas'], 0, ',', '.') : '&mdash;' ?></td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    </section>
-
-                    <section class="panel">
-                        <h2 class="panel-title">
-                            <svg class="title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                <path d="M14 2v6h6"></path>
-                                <path d="M8 13h8"></path>
-                                <path d="M8 17h8"></path>
-                            </svg>
-                            <?= e($sumariosDisplayTitle) ?>
-                        </h2>
-
-                        <div class="stat-cards two">
-                            <div class="stat-card card-green"<?= ($style = buildCardStyle((string) ($sumariosCardMeta['elaborados']['color'] ?? ''))) !== '' ? ' style="' . e($style) . '"' : '' ?>>
-                                <span>Elaborados<?= e($cardSemesterSuffix) ?></span>
-                                <strong><?= number_format($sumariosTotals['elaborados'], 0, ',', '.') ?></strong>
-                            </div>
-                            <div class="stat-card card-red"<?= ($style = buildCardStyle((string) ($sumariosCardMeta['nao_elaborados']['color'] ?? ''))) !== '' ? ' style="' . e($style) . '"' : '' ?>>
-                                <span>N&atilde;o Elaborados<?= e($cardSemesterSuffix) ?></span>
-                                <strong><?= number_format($sumariosTotals['nao_elaborados'], 0, ',', '.') ?></strong>
-                            </div>
-                        </div>
-
-                        <div class="table-shell">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Unidade Org&acirc;nica</th>
-                                        <th class="col-green">Elaborados</th>
-                                        <th class="col-red">N&atilde;o Elaborados</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($uoOrder as $uo): ?>
-                                        <tr>
-                                            <td>
-                                                <div class="uo-cell">
-                                                    <svg class="icon-house" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                                        <path d="M3 21h18"></path>
-                                                        <path d="M5 21V8l7-5 7 5v13"></path>
-                                                        <path d="M9 21v-6h6v6"></path>
-                                                        <path d="M9 9h.01"></path>
-                                                        <path d="M15 9h.01"></path>
-                                                    </svg>
-                                                    <?= e($uo) ?>
-                                                </div>
-                                            </td>
-                                            <td class="col-green"><?= number_format($sumariosPorUo[$uo]['elaborados'] ?? 0, 0, ',', '.') ?></td>
-                                            <td class="col-red"><?= number_format($sumariosPorUo[$uo]['nao_elaborados'] ?? 0, 0, ',', '.') ?></td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    </section>
+                            <?php if ($panel['show_table']): ?>
+                                <div class="table-shell">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Unidade Org&acirc;nica</th>
+                                                <?php foreach ($panel['items'] as $item): ?>
+                                                    <th<?= ($style = buildTextColorStyle((string) ($item['color'] ?? ''))) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                                        <?= e((string) $item['label']) ?>
+                                                    </th>
+                                                <?php endforeach; ?>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($panel['uo_order'] as $uo): ?>
+                                                <?php $schoolColor = resolveSchoolColor($schoolColors, (string) $uo); ?>
+                                                <tr>
+                                                    <td>
+                                                        <div class="uo-cell">
+                                                            <svg class="icon-house"<?= ($style = buildTextColorStyle($schoolColor)) !== '' ? ' style="' . e($style) . '"' : '' ?> viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                                <path d="M3 21h18"></path>
+                                                                <path d="M5 21V8l7-5 7 5v13"></path>
+                                                                <path d="M9 21v-6h6v6"></path>
+                                                                <path d="M9 9h.01"></path>
+                                                                <path d="M15 9h.01"></path>
+                                                            </svg>
+                                                            <?= e((string) $uo) ?>
+                                                        </div>
+                                                    </td>
+                                                    <?php foreach ($panel['items'] as $item): ?>
+                                                        <td<?= ($style = buildTextColorStyle((string) ($item['color'] ?? ''))) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                                            <?= formatMetricValue((int) ($panel['rows_by_uo'][$uo][$item['key']] ?? 0), (string) ($item['empty_display'] ?? 'zero')) ?>
+                                                        </td>
+                                                    <?php endforeach; ?>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            <?php endif; ?>
+                        </section>
+                    <?php endforeach; ?>
 
                     <div class="mini-grid">
                         <section class="panel">
