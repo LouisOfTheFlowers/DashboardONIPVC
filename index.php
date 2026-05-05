@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+<<<<<<< Updated upstream
 const ALERTS_CONFIG_DIR = __DIR__ . DIRECTORY_SEPARATOR . 'alertasconfig';
 
 $jsonPath = __DIR__ . DIRECTORY_SEPARATOR . 'alertas' . DIRECTORY_SEPARATOR . 'alertsPresidencia.json';
@@ -1655,3 +1656,13 @@ $pageTitle = (string) ($dashboardProfile['ds_grupo'] ?? 'Presidencia');
     </script>
 </body>
 </html>
+=======
+$profile = trim((string) ($_GET['profile'] ?? 'presidencia'));
+$pages = [
+    'presidencia' => 'presidencia.php',
+    'cc' => 'cc.php',
+    'docente' => 'docente.php',
+];
+
+require __DIR__ . DIRECTORY_SEPARATOR . ($pages[$profile] ?? $pages['presidencia']);
+>>>>>>> Stashed changes
