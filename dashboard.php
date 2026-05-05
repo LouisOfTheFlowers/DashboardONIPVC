@@ -1,30 +1,32 @@
 <?php
 declare(strict_types=1);
 
-<<<<<<< Updated upstream
 const ALERTS_CONFIG_DIR = __DIR__ . DIRECTORY_SEPARATOR . 'alertasconfig';
 $availablePages = [
     'presidencia' => [
         'label' => 'Presidência',
+        'url' => 'presidencia.php',
         'json' => 'alertsPresidencia.json',
         'config' => 'alertsPresidenciaconfig.json',
         'payload_key' => 'presidencia',
     ],
     'cc' => [
         'label' => 'Coordenador de Curso',
+        'url' => 'cc.php',
         'json' => 'alertsCC.json',
         'config' => 'alertsCCconfig.json',
         'payload_key' => 'coord_curso',
     ],
     'docente' => [
         'label' => 'Docente',
+        'url' => 'docente.php',
         'json' => 'alertsDocente.json',
         'config' => 'alertsDocenteconfig.json',
         'payload_key' => 'docente',
     ],
 ];
 
-$selectedPage = trim((string) ($_GET['profile'] ?? 'presidencia'));
+$selectedPage = trim((string) (defined('DASHBOARD_PAGE') ? DASHBOARD_PAGE : ($_GET['profile'] ?? 'presidencia')));
 if (!isset($availablePages[$selectedPage])) {
     $selectedPage = 'presidencia';
 }
@@ -405,6 +407,32 @@ function resolveSchoolColor(array $schoolColors, string $school): string
     return is_string($color) ? $color : '';
 }
 
+function resolveSchoolLabel(array $schoolColors, string $school): string
+{
+    $entry = lookupConfigEntry($schoolColors, $school);
+    if ($entry !== []) {
+        return trim((string) ($entry['label'] ?? ''));
+    }
+
+    return '';
+}
+
+function buildSchoolTextStyle(array $config, string $school): string
+{
+    $schoolColors = is_array($config['school_colors'] ?? null) ? $config['school_colors'] : [];
+    $color = resolveSchoolColor($schoolColors, $school);
+
+    return buildTextColorStyle($color);
+}
+
+function schoolTitle(array $config, string $school): string
+{
+    $schoolColors = is_array($config['school_colors'] ?? null) ? $config['school_colors'] : [];
+    $label = resolveSchoolLabel($schoolColors, $school);
+
+    return $label !== '' ? $label : $school;
+}
+
 function hasFieldInRows(array $rows, string $field): bool
 {
     if ($field === '') {
@@ -565,12 +593,15 @@ function buildAutomaticCardPanelConfigs(array $groups): array
 
 function buildProfileUrl(string $profile, array $params = []): string
 {
+    global $availablePages;
+
+    $baseUrl = (string) ($availablePages[$profile]['url'] ?? 'index.php');
     $query = array_filter(
-        array_merge(['profile' => $profile], $params),
+        $params,
         static fn (mixed $value): bool => $value !== null && $value !== ''
     );
 
-    return '?' . http_build_query($query);
+    return $query === [] ? $baseUrl : $baseUrl . '?' . http_build_query($query);
 }
 
 function buildStateItems(array $rows, array $stateConfig, string $stateField = 'estado', string $countField = 'num_ucs'): array
@@ -1328,13 +1359,15 @@ $totalUcsSemDocente = 0;
 $ucsSemDocenteTitleStyle = '';
 $presidenciaAulasPanel = [];
 $presidenciaSumariosPanel = [];
+$cardPanelConfigs = configuredCardPanelConfigs($alertsConfig);
+if ($cardPanelConfigs === []) {
+    $cardPanelConfigs = buildAutomaticCardPanelConfigs($grupos);
+}
 
 if ($selectedPage === 'presidencia') {
-    $scopeField = 'uo';
-    $allUoOrder = buildUoOrder(
-        groupDataRows($grupos, ['aulas_por_lecionar_pres', 'aulas_por_lecionar']),
-        groupDataRows($grupos, ['sumarios_por_publicar_pres', 'sumarios_por_publicar'])
-    );
+    $panelDatasets = panelFilterDatasets($cardPanelConfigs, $grupos);
+    $scopeField = firstNonEmptyPanelField($panelDatasets, 'uo_field');
+    $allUoOrder = $scopeField !== '' ? buildFieldOrderFromPanelDatasets($panelDatasets, 'uo_field') : [];
     $selectedUo = trim((string) ($_GET['scope'] ?? ''));
     if ($selectedUo !== '' && !in_array($selectedUo, $allUoOrder, true)) {
         $selectedUo = '';
@@ -1362,95 +1395,8 @@ if ($selectedPage === 'presidencia') {
         ['Elaborado' => 'Elaborados', 'Não Elaborado' => 'Não Elaborados']
     );
 
-    $aulasStateColors = [];
-    foreach (groupDataRows($grupos, ['aulas_por_lecionar_pres', 'aulas_por_lecionar']) as $row) {
-        $stateId = (int) ($row['id_estado'] ?? 0);
-        if ($stateId <= 0 || isset($aulasStateColors[$stateId])) {
-            continue;
-        }
-
-        $configEntry = lookupConfigEntry($descricaoConfig, (string) ($row['descricao'] ?? ''));
-        $aulasStateColors[$stateId] = (string) ($configEntry['color'] ?? '');
-    }
-
-    $sumariosStateColors = [];
-    foreach (groupDataRows($grupos, ['sumarios_por_publicar_pres', 'sumarios_por_publicar']) as $row) {
-        $stateId = (int) ($row['id_estado_sumario'] ?? 0);
-        if ($stateId <= 0 || isset($sumariosStateColors[$stateId])) {
-            continue;
-        }
-
-        $configEntry = lookupConfigEntry($descricaoEstadoConfig, (string) ($row['descricao_estado'] ?? ''));
-        $sumariosStateColors[$stateId] = (string) ($configEntry['color'] ?? '');
-    }
-
     $presidenciaPanels = buildCardPanels(
-        [
-            [
-                'group' => 'aulas_por_lecionar_pres',
-                'title' => $aulasTitle,
-                'icon' => 'chart',
-                'config_group' => 'descricao',
-                'state_field' => 'id_estado',
-                'count_field' => 'num_aulas',
-                'semester_field' => 'semestre',
-                'uo_field' => 'uo',
-                'group_label' => 'Unidade OrgÃ¢nica',
-                'show_table' => true,
-                'items' => [
-                    [
-                        'key' => 'por_lecionar',
-                        'label' => 'Por Lecionar',
-                        'source_label' => 'Por lecionar',
-                        'state_values' => [1],
-                        'color' => (string) ($aulasStateColors[1] ?? ''),
-                        'empty_display' => 'zero',
-                    ],
-                    [
-                        'key' => 'nao_lecionadas',
-                        'label' => 'NÃ£o Lecionadas',
-                        'source_label' => 'NÃ£o lecionada',
-                        'state_values' => ['NÃ£o lecionada', 'NÃ£o lecionadas'],
-                        'empty_display' => 'dash',
-                    ],
-                    [
-                        'key' => 'nao_justificadas',
-                        'label' => 'NÃ£o Justificadas',
-                        'source_label' => 'NÃ£o Justificada',
-                        'state_values' => ['NÃ£o Justificada', 'NÃ£o Justificadas'],
-                        'empty_display' => 'dash',
-                    ],
-                ],
-            ],
-            [
-                'group' => 'sumarios_por_publicar_pres',
-                'title' => $sumariosTitle,
-                'icon' => 'document',
-                'config_group' => 'descricao_estado',
-                'state_field' => 'id_estado_sumario',
-                'count_field' => 'num_aulas',
-                'semester_field' => 'semestre',
-                'uo_field' => 'uo',
-                'group_label' => 'Unidade OrgÃ¢nica',
-                'show_table' => true,
-                'items' => [
-                    [
-                        'key' => 'elaborados',
-                        'label' => 'Elaborados',
-                        'source_label' => 'Elaborado',
-                        'state_values' => ['Elaborado', 'Elaborados'],
-                        'empty_display' => 'dash',
-                    ],
-                    [
-                        'key' => 'nao_elaborados',
-                        'label' => 'NÃ£o Elaborados',
-                        'source_label' => 'NÃ£o Elaborado',
-                        'state_values' => ['NÃ£o Elaborado', 'NÃ£o Elaborados'],
-                        'empty_display' => 'dash',
-                    ],
-                ],
-            ],
-        ],
+        $cardPanelConfigs,
         $grupos,
         $alertsConfig,
         $selectedSemester,
@@ -1459,74 +1405,8 @@ if ($selectedPage === 'presidencia') {
 
     $presidenciaAulasPanel = $presidenciaPanels[0] ?? [];
     $presidenciaSumariosPanel = $presidenciaPanels[1] ?? [];
-
-    $aulasOverviewRows = filterRows(
-        groupDataRows($grupos, ['aulas_por_lecionar_pres', 'aulas_por_lecionar'], $selectedSemester),
-        '',
-        $selectedUo,
-        '',
-        'uo'
-    );
-    $sumariosOverviewRows = filterRows(
-        groupDataRows($grupos, ['sumarios_por_publicar_pres', 'sumarios_por_publicar'], $selectedSemester),
-        '',
-        $selectedUo,
-        '',
-        'uo'
-    );
-
-    $presidenciaAulasPanel = buildPresidenciaStatusPanel(
-        $aulasOverviewRows,
-        'id_estado',
-        'num_aulas',
-        'uo',
-        [
-            [
-                'key' => 'por_lecionar',
-                'label' => 'Por Lecionar',
-                'state_id' => 1,
-                'color' => (string) ($aulasStateColors[1] ?? ''),
-                'empty_display' => 'zero',
-            ],
-            [
-                'key' => 'nao_lecionadas',
-                'label' => 'Não Lecionadas',
-                'state_id' => 3,
-                'color' => (string) ($aulasStateColors[3] ?? ''),
-                'empty_display' => 'dash',
-            ],
-            [
-                'key' => 'nao_justificadas',
-                'label' => 'Não Justificadas',
-                'state_id' => 7,
-                'color' => (string) ($aulasStateColors[7] ?? ''),
-                'empty_display' => 'dash',
-            ],
-        ]
-    );
-
-    $presidenciaSumariosPanel = buildPresidenciaStatusPanel(
-        $sumariosOverviewRows,
-        'id_estado_sumario',
-        'num_aulas',
-        'uo',
-        [
-            [
-                'key' => 'elaborados',
-                'label' => 'Elaborados',
-                'state_id' => 2,
-                'color' => (string) ($sumariosStateColors[2] ?? ''),
-                'empty_display' => 'dash',
-            ],
-            [
-                'key' => 'nao_elaborados',
-                'label' => 'Não Elaborados',
-                'state_id' => 1,
-                'color' => (string) ($sumariosStateColors[1] ?? ''),
-                'empty_display' => 'dash',
-            ],
-        ]
-    );
+    $aulasTitle = (string) ($presidenciaAulasPanel['title'] ?? $aulasTitle);
+    $sumariosTitle = (string) ($presidenciaSumariosPanel['title'] ?? $sumariosTitle);
 
     $pucRows = groupDataRows($grupos, ['resumo_estados_puc_pres', 'resumo_estados_puc'], $selectedSemester);
     $rucRows = groupDataRows($grupos, ['resumo_estados_ruc_pres', 'resumo_estados_ruc'], $selectedSemester);
@@ -2696,7 +2576,7 @@ if ($selectedPage === 'presidencia') {
                         <?php if ($selectedPage === 'presidencia'): ?>
                             <section class="panel">
                                 <h2 class="panel-title">
-                                    <?= panelIconSvg('chart') ?>
+                                    <?= panelIconSvg((string) ($presidenciaAulasPanel['icon'] ?? 'chart')) ?>
                                     <?= e($aulasTitle) ?>
                                 </h2>
 
@@ -2715,7 +2595,7 @@ if ($selectedPage === 'presidencia') {
                                             <table class="pres-overview-table">
                                                 <thead>
                                                     <tr>
-                                                        <th class="uo-column">Unidade Org&acirc;nica</th>
+                                                        <th class="uo-column"><?= e((string) ($presidenciaAulasPanel['group_label'] ?? 'Unidade Orgânica')) ?></th>
                                                         <?php foreach ($presidenciaAulasPanel['items'] as $item): ?>
                                                             <th class="metric-column"<?= ($style = buildTextColorStyle((string) $item['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>>
                                                                 <span><?= e((string) $item['label']) ?></span>
@@ -2727,7 +2607,7 @@ if ($selectedPage === 'presidencia') {
                                                     <?php foreach ($presidenciaAulasPanel['uo_order'] as $uo): ?>
                                                         <tr>
                                                             <td>
-                                                                <div class="uo-cell">
+                                                                <div class="uo-cell" title="<?= e(schoolTitle($alertsConfig, (string) $uo)) ?>"<?= ($style = buildSchoolTextStyle($alertsConfig, (string) $uo)) !== '' ? ' style="' . e($style) . '"' : '' ?>>
                                                                     <?= uoIconSvg() ?>
                                                                     <span><?= e((string) $uo) ?></span>
                                                                 </div>
@@ -2752,7 +2632,7 @@ if ($selectedPage === 'presidencia') {
 
                             <section class="panel">
                                 <h2 class="panel-title">
-                                    <?= panelIconSvg('document') ?>
+                                    <?= panelIconSvg((string) ($presidenciaSumariosPanel['icon'] ?? 'document')) ?>
                                     <?= e($sumariosTitle) ?>
                                 </h2>
 
@@ -2771,7 +2651,7 @@ if ($selectedPage === 'presidencia') {
                                             <table class="pres-overview-table">
                                                 <thead>
                                                     <tr>
-                                                        <th class="uo-column">Unidade Org&acirc;nica</th>
+                                                        <th class="uo-column"><?= e((string) ($presidenciaSumariosPanel['group_label'] ?? 'Unidade Orgânica')) ?></th>
                                                         <?php foreach ($presidenciaSumariosPanel['items'] as $item): ?>
                                                             <th class="metric-column"<?= ($style = buildTextColorStyle((string) $item['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>>
                                                                 <span><?= e((string) $item['label']) ?></span>
@@ -2783,7 +2663,7 @@ if ($selectedPage === 'presidencia') {
                                                     <?php foreach ($presidenciaSumariosPanel['uo_order'] as $uo): ?>
                                                         <tr>
                                                             <td>
-                                                                <div class="uo-cell">
+                                                                <div class="uo-cell" title="<?= e(schoolTitle($alertsConfig, (string) $uo)) ?>"<?= ($style = buildSchoolTextStyle($alertsConfig, (string) $uo)) !== '' ? ' style="' . e($style) . '"' : '' ?>>
                                                                     <?= uoIconSvg() ?>
                                                                     <span><?= e((string) $uo) ?></span>
                                                                 </div>
@@ -3037,13 +2917,3 @@ if ($selectedPage === 'presidencia') {
     </script>
 </body>
 </html>
-=======
-$profile = trim((string) ($_GET['profile'] ?? 'presidencia'));
-$pages = [
-    'presidencia' => 'presidencia.php',
-    'cc' => 'cc.php',
-    'docente' => 'docente.php',
-];
-
-require __DIR__ . DIRECTORY_SEPARATOR . ($pages[$profile] ?? $pages['presidencia']);
->>>>>>> Stashed changes
