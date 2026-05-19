@@ -464,7 +464,7 @@ function humanizeFieldLabel(string $field): string
     $field = cleanText($field);
 
     $map = [
-        'uo' => 'Unidade Orgânica',
+        'uo' => 'Unidade Organica',
         'sigla_curso' => 'Curso',
         'semestre' => 'Semestre',
         'nome_uc' => 'UC',
@@ -495,7 +495,7 @@ function humanizeFieldLabel(string $field): string
 function defaultScopeOptionLabel(string $field): string
 {
     return match ($field) {
-        'uo' => 'Todas as Unidades Orgânicas',
+        'uo' => 'Todas as Unidades Organicas',
         'sigla_curso' => 'Todos os Cursos',
         default => 'Todos',
     };
@@ -589,6 +589,120 @@ function buildAutomaticCardPanelConfigs(array $groups): array
     }
 
     return $configs;
+}
+
+function normalizedGroupLookup(array $groupKeys): array
+{
+    $lookup = [];
+
+    foreach ($groupKeys as $groupKey) {
+        $lookup[normalizeState((string) $groupKey)] = true;
+    }
+
+    return $lookup;
+}
+
+function cardPanelGroupKeys(array $panelConfigs): array
+{
+    $keys = [];
+
+    foreach ($panelConfigs as $panelConfig) {
+        $groupKey = trim((string) ($panelConfig['group'] ?? ''));
+        if ($groupKey !== '') {
+            $keys[] = $groupKey;
+        }
+    }
+
+    return $keys;
+}
+
+function appendSkippedGroup(array &$skipLookup, string $groupKey): void
+{
+    if ($groupKey !== '') {
+        $skipLookup[normalizeState($groupKey)] = true;
+    }
+}
+
+function groupIsSkipped(array $skipLookup, string $groupKey): bool
+{
+    return isset($skipLookup[normalizeState($groupKey)]);
+}
+
+function buildAutomaticSummaryPanels(
+    array $groups,
+    array &$skipLookup,
+    array $stateConfig,
+    string $selectedSemester
+): array {
+    $panels = [];
+
+    foreach ($groups as $groupKey => $group) {
+        $groupKey = (string) $groupKey;
+        if (groupIsSkipped($skipLookup, $groupKey) || !is_array($group)) {
+            continue;
+        }
+
+        $rows = is_array($group['dados'] ?? null) ? $group['dados'] : [];
+        if ($rows === [] || !isset($rows[0]) || !is_array($rows[0])) {
+            continue;
+        }
+
+        $stateField = selectFirstExistingField($rows, ['estado']);
+        $countField = selectFirstExistingField($rows, ['num_ucs', 'count', 'total']);
+        if ($stateField === '' || $countField === '') {
+            continue;
+        }
+
+        $semesterField = selectFirstExistingField($rows, ['semestre']);
+        $filteredRows = $semesterField !== '' ? filterRows($rows, $selectedSemester, '', $semesterField, '') : $rows;
+        $panels[] = [
+            'title' => (string) ($group['ds'] ?? $groupKey),
+            'items' => buildStateSummaryCards($filteredRows, $stateConfig, $stateField, $countField),
+        ];
+        appendSkippedGroup($skipLookup, $groupKey);
+    }
+
+    return $panels;
+}
+
+function buildAutomaticEntrySections(
+    array $groups,
+    array &$skipLookup,
+    array $stateConfig,
+    string $selectedSemester
+): array {
+    $sections = [];
+
+    foreach ($groups as $groupKey => $group) {
+        $groupKey = (string) $groupKey;
+        if (groupIsSkipped($skipLookup, $groupKey) || !is_array($group)) {
+            continue;
+        }
+
+        $rows = is_array($group['dados'] ?? null) ? $group['dados'] : [];
+        if ($rows === [] || !isset($rows[0]) || !is_array($rows[0])) {
+            continue;
+        }
+
+        if (!hasFieldInRows($rows, 'estado') || !hasFieldInRows($rows, 'nome_uc')) {
+            continue;
+        }
+
+        $semesterField = selectFirstExistingField($rows, ['semestre']);
+        $filteredRows = $semesterField !== '' ? filterRows($rows, $selectedSemester, '', $semesterField, '') : $rows;
+        $items = buildEntryCards($filteredRows, $stateConfig);
+        if ($items === []) {
+            continue;
+        }
+
+        $sections[] = [
+            'title' => (string) ($group['ds'] ?? $groupKey),
+            'items' => $items,
+        ];
+        appendSkippedGroup($skipLookup, $groupKey);
+    }
+
+    return $sections;
 }
 
 function buildProfileUrl(string $profile, array $params = []): string
@@ -978,16 +1092,16 @@ function buildStateTotalsFromEntries(array $rows, array $stateConfig): array
 
 function buildDetailTablePanels(
     array $groups,
-    array $skipGroupKeys,
+    array $skipLookup,
     string $selectedSemester,
     string $selectedUo,
     string $scopeField
 ): array {
     $panels = [];
-    $skipLookup = array_fill_keys($skipGroupKeys, true);
 
     foreach ($groups as $groupKey => $group) {
-        if (isset($skipLookup[(string) $groupKey]) || !is_array($group)) {
+        $groupKey = (string) $groupKey;
+        if (groupIsSkipped($skipLookup, $groupKey) || !is_array($group)) {
             continue;
         }
 
@@ -1011,12 +1125,13 @@ function buildDetailTablePanels(
     return $panels;
 }
 
-function buildMetricOnlyPanels(array $groups, array $config): array
+function buildMetricOnlyPanels(array $groups, array $config, array &$skipLookup = []): array
 {
     $panels = [];
 
     foreach ($groups as $groupKey => $group) {
-        if (!is_array($group) || !is_array($group['dados'] ?? null)) {
+        $groupKey = (string) $groupKey;
+        if (groupIsSkipped($skipLookup, $groupKey) || !is_array($group) || !is_array($group['dados'] ?? null)) {
             continue;
         }
 
@@ -1049,6 +1164,7 @@ function buildMetricOnlyPanels(array $groups, array $config): array
             'title' => (string) ($group['ds'] ?? $groupKey),
             'items' => $items,
         ];
+        appendSkippedGroup($skipLookup, $groupKey);
     }
 
     return $panels;
@@ -1333,6 +1449,7 @@ $selectedUo = '';
 $scopeField = '';
 $allUoOrder = [];
 $defaultUoFilter = 'Todas as UO';
+$scopeAllLabel = 'Todas as UO';
 
 $descricaoConfig = is_array($alertsConfig['descricao'] ?? null) ? $alertsConfig['descricao'] : [];
 $descricaoEstadoConfig = is_array($alertsConfig['descricao_estado'] ?? null) ? $alertsConfig['descricao_estado'] : [];
@@ -1359,21 +1476,38 @@ $totalUcsSemDocente = 0;
 $ucsSemDocenteTitleStyle = '';
 $presidenciaAulasPanel = [];
 $presidenciaSumariosPanel = [];
-$cardPanelConfigs = configuredCardPanelConfigs($alertsConfig);
-if ($cardPanelConfigs === []) {
-    $cardPanelConfigs = buildAutomaticCardPanelConfigs($grupos);
+$configuredCardPanelConfigs = configuredCardPanelConfigs($alertsConfig);
+$automaticCardPanelConfigs = buildAutomaticCardPanelConfigs($grupos);
+$configuredCardPanelLookup = normalizedGroupLookup(cardPanelGroupKeys($configuredCardPanelConfigs));
+$cardPanelConfigs = $configuredCardPanelConfigs;
+foreach ($automaticCardPanelConfigs as $automaticCardPanelConfig) {
+    $automaticGroupKey = (string) ($automaticCardPanelConfig['group'] ?? '');
+    if ($automaticGroupKey !== '' && !isset($configuredCardPanelLookup[normalizeState($automaticGroupKey)])) {
+        $cardPanelConfigs[] = $automaticCardPanelConfig;
+    }
 }
+$configuredOverviewPanels = [];
+$autoMetricPanels = [];
+$autoDetailPanels = [];
 
-if ($selectedPage === 'presidencia') {
+if ($cardPanelConfigs !== []) {
     $panelDatasets = panelFilterDatasets($cardPanelConfigs, $grupos);
     $scopeField = firstNonEmptyPanelField($panelDatasets, 'uo_field');
     $allUoOrder = $scopeField !== '' ? buildFieldOrderFromPanelDatasets($panelDatasets, 'uo_field') : [];
+    $scopeAllLabel = defaultScopeOptionLabel($scopeField);
     $selectedUo = trim((string) ($_GET['scope'] ?? ''));
     if ($selectedUo !== '' && !in_array($selectedUo, $allUoOrder, true)) {
         $selectedUo = '';
     }
     $showScopeFilter = $allUoOrder !== [];
-    $defaultUoFilter = $selectedUo !== '' ? $selectedUo : 'Todas as UO';
+    $defaultUoFilter = $selectedUo !== '' ? $selectedUo : $scopeAllLabel;
+    $configuredOverviewPanels = buildCardPanels(
+        $cardPanelConfigs,
+        $grupos,
+        $alertsConfig,
+        $selectedSemester,
+        $selectedUo
+    );
 }
 
 if ($selectedPage === 'presidencia') {
@@ -1395,16 +1529,8 @@ if ($selectedPage === 'presidencia') {
         ['Elaborado' => 'Elaborados', 'Não Elaborado' => 'Não Elaborados']
     );
 
-    $presidenciaPanels = buildCardPanels(
-        $cardPanelConfigs,
-        $grupos,
-        $alertsConfig,
-        $selectedSemester,
-        $selectedUo
-    );
-
-    $presidenciaAulasPanel = $presidenciaPanels[0] ?? [];
-    $presidenciaSumariosPanel = $presidenciaPanels[1] ?? [];
+    $presidenciaAulasPanel = $configuredOverviewPanels[0] ?? [];
+    $presidenciaSumariosPanel = $configuredOverviewPanels[1] ?? [];
     $aulasTitle = (string) ($presidenciaAulasPanel['title'] ?? $aulasTitle);
     $sumariosTitle = (string) ($presidenciaSumariosPanel['title'] ?? $sumariosTitle);
 
@@ -1531,6 +1657,39 @@ if ($selectedPage === 'presidencia') {
     $stageTitle = groupLabel($grupos, ['estagios'], 'Estágios');
     $stageMessage = 'Sem estágios atribuídos.';
 }
+
+$renderedGroupLookup = normalizedGroupLookup(cardPanelGroupKeys($cardPanelConfigs));
+if ($selectedPage === 'presidencia') {
+    foreach (['resumo_estados_puc_pres', 'resumo_estados_ruc_pres', 'ucs_sem_docente'] as $groupKey) {
+        appendSkippedGroup($renderedGroupLookup, $groupKey);
+    }
+} elseif ($selectedPage === 'cc') {
+    foreach ([
+        'resumo_estados_puc_cc',
+        'resumo_estados_ruc_cc',
+        'estado_pucs_cc',
+        'estado_rucs_cc',
+        'pedidos_substituicao',
+        'estagios',
+    ] as $groupKey) {
+        appendSkippedGroup($renderedGroupLookup, $groupKey);
+    }
+} elseif ($selectedPage === 'docente') {
+    foreach (['estado_pucs_docente', 'estado_rucs_docente', 'estagios'] as $groupKey) {
+        appendSkippedGroup($renderedGroupLookup, $groupKey);
+    }
+}
+
+$summaryPanels = array_merge(
+    $summaryPanels,
+    buildAutomaticSummaryPanels($grupos, $renderedGroupLookup, $estadoConfig, $selectedSemester)
+);
+$entrySections = array_merge(
+    $entrySections,
+    buildAutomaticEntrySections($grupos, $renderedGroupLookup, $estadoConfig, $selectedSemester)
+);
+$autoMetricPanels = buildMetricOnlyPanels($grupos, $alertsConfig, $renderedGroupLookup);
+$autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selectedSemester, $selectedUo, $scopeField);
 ?>
 <!DOCTYPE html>
 <html lang="pt">
@@ -1584,6 +1743,7 @@ if ($selectedPage === 'presidencia') {
         }
 
         .dashboard {
+            
             height: 100vh;
             display: grid;
             grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -1795,8 +1955,9 @@ if ($selectedPage === 'presidencia') {
         }
 
         .hero-copy h1 {
-            margin: 0;
-            font-size: clamp(1.95rem, 2.5vw, 2.55rem);
+            display: flex;
+            margin-top: 15px;
+            font-size: clamp(1.3rem, 2.5vw, 1.75rem);
             letter-spacing: -0.05em;
             line-height: 0.95;
         }
@@ -2327,9 +2488,9 @@ if ($selectedPage === 'presidencia') {
 
         .uc-item {
             padding: 14px 16px;
-            border-left: 3px solid #ffd4d4;
+            border-left: 3px solid #d9e1ec;
             border-radius: 0 12px 12px 0;
-            background: #fff6f6;
+            background: #f8fafc;
         }
 
         .muted {
@@ -2546,9 +2707,9 @@ if ($selectedPage === 'presidencia') {
                                                 <path d="M6 9l6 6 6-6"></path>
                                             </svg>
                                         </button>
-                                    <div class="filter-menu" role="menu" aria-label="Filtro de unidade orgânica">
+                                    <div class="filter-menu" role="menu" aria-label="Filtro de <?= e(humanizeFieldLabel($scopeField)) ?>">
                                         <button class="filter-option<?= $selectedUo === '' ? ' is-selected' : '' ?>" type="button" data-filter-name="scope" data-filter-value="">
-                                                <span>Todas as UO</span>
+                                                <span><?= e($scopeAllLabel) ?></span>
                                             <?php if ($selectedUo === ''): ?>
                                                 <svg class="filter-option-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                                     <path d="M20 6L9 17l-5-5"></path>
@@ -2573,58 +2734,84 @@ if ($selectedPage === 'presidencia') {
                     </div>
 
                     <div class="main-grid">
-                        <?php if ($selectedPage === 'presidencia'): ?>
+                        <?php if ($configuredOverviewPanels !== []): ?>
+                            <?php foreach ($configuredOverviewPanels as $overviewPanel): ?>
+                                <?php $items = is_array($overviewPanel['items'] ?? null) ? $overviewPanel['items'] : []; ?>
+                                <section class="panel">
+                                    <h2 class="panel-title">
+                                        <?= panelIconSvg((string) ($overviewPanel['icon'] ?? 'chart')) ?>
+                                        <?= e((string) ($overviewPanel['title'] ?? '')) ?>
+                                    </h2>
+
+                                    <?php if ($items !== []): ?>
+                                        <?php $statsClass = count($items) === 3 ? 'three' : (count($items) === 2 ? 'two' : ''); ?>
+                                        <div class="pres-overview-stats <?= e($statsClass) ?>">
+                                            <?php foreach ($items as $item): ?>
+                                                <article class="summary-card pres-overview-card"<?= ($style = buildCardStyle((string) $item['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                                    <span class="summary-label"><?= e((string) $item['label']) ?></span>
+                                                    <strong class="summary-value"><?= number_format((int) ($overviewPanel['totals'][$item['key']] ?? 0), 0, ',', '.') ?></strong>
+                                                </article>
+                                            <?php endforeach; ?>
+                                        </div>
+
+                                        <?php if ((bool) ($overviewPanel['show_table'] ?? false) && ($overviewPanel['uo_order'] ?? []) !== []): ?>
+                                            <div class="table-shell">
+                                                <table class="pres-overview-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th class="uo-column"><?= e((string) ($overviewPanel['group_label'] ?? 'Grupo')) ?></th>
+                                                            <?php foreach ($items as $item): ?>
+                                                                <th class="metric-column"<?= ($style = buildTextColorStyle((string) $item['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                                                    <span><?= e((string) $item['label']) ?></span>
+                                                                </th>
+                                                            <?php endforeach; ?>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <?php foreach ($overviewPanel['uo_order'] as $uo): ?>
+                                                            <tr>
+                                                                <td>
+                                                                    <div class="uo-cell" title="<?= e(schoolTitle($alertsConfig, (string) $uo)) ?>"<?= ($style = buildSchoolTextStyle($alertsConfig, (string) $uo)) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                                                        <?= uoIconSvg() ?>
+                                                                        <span><?= e((string) $uo) ?></span>
+                                                                    </div>
+                                                                </td>
+                                                                <?php foreach ($items as $item): ?>
+                                                                    <td class="metric-cell"<?= ($style = buildTextColorStyle((string) $item['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                                                        <strong><?= formatMetricValue((int) ($overviewPanel['rows_by_uo'][$uo][$item['key']] ?? 0), (string) ($item['empty_display'] ?? 'zero')) ?></strong>
+                                                                    </td>
+                                                                <?php endforeach; ?>
+                                                            </tr>
+                                                        <?php endforeach; ?>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        <?php endif; ?>
+                                    <?php else: ?>
+                                        <p class="muted">Sem dados para apresentar.</p>
+                                    <?php endif; ?>
+                                </section>
+                            <?php endforeach; ?>
+                        <?php else: ?>
                             <section class="panel">
                                 <h2 class="panel-title">
-                                    <?= panelIconSvg((string) ($presidenciaAulasPanel['icon'] ?? 'chart')) ?>
+                                    <?= panelIconSvg('chart') ?>
                                     <?= e($aulasTitle) ?>
                                 </h2>
 
-                                <?php if ($presidenciaAulasPanel !== []): ?>
-                                    <div class="pres-overview-stats three">
-                                        <?php foreach ($presidenciaAulasPanel['items'] as $item): ?>
-                                            <article class="summary-card pres-overview-card"<?= ($style = buildCardStyle((string) $item['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>>
-                                                <span class="summary-label"><?= e((string) $item['label']) ?></span>
-                                                <strong class="summary-value"><?= number_format((int) ($presidenciaAulasPanel['totals'][$item['key']] ?? 0), 0, ',', '.') ?></strong>
+                                <?php if ($aulasCards !== []): ?>
+                                    <div class="metric-grid">
+                                        <?php foreach ($aulasCards as $card): ?>
+                                            <article class="metric-card"<?= ($style = buildCardStyle((string) $card['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                                <div class="metric-card-top">
+                                                    <span class="metric-badge"><?= e((string) $card['semester']) ?></span>
+                                                    <span class="metric-status"><?= e((string) $card['state']) ?></span>
+                                                </div>
+                                                <strong class="metric-value"><?= number_format((int) $card['count'], 0, ',', '.') ?></strong>
+                                                <span class="metric-unit"><?= e((string) $card['unit']) ?></span>
                                             </article>
                                         <?php endforeach; ?>
                                     </div>
-
-                                    <?php if (($presidenciaAulasPanel['uo_order'] ?? []) !== []): ?>
-                                        <div class="table-shell">
-                                            <table class="pres-overview-table">
-                                                <thead>
-                                                    <tr>
-                                                        <th class="uo-column"><?= e((string) ($presidenciaAulasPanel['group_label'] ?? 'Unidade Orgânica')) ?></th>
-                                                        <?php foreach ($presidenciaAulasPanel['items'] as $item): ?>
-                                                            <th class="metric-column"<?= ($style = buildTextColorStyle((string) $item['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>>
-                                                                <span><?= e((string) $item['label']) ?></span>
-                                                            </th>
-                                                        <?php endforeach; ?>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    <?php foreach ($presidenciaAulasPanel['uo_order'] as $uo): ?>
-                                                        <tr>
-                                                            <td>
-                                                                <div class="uo-cell" title="<?= e(schoolTitle($alertsConfig, (string) $uo)) ?>"<?= ($style = buildSchoolTextStyle($alertsConfig, (string) $uo)) !== '' ? ' style="' . e($style) . '"' : '' ?>>
-                                                                    <?= uoIconSvg() ?>
-                                                                    <span><?= e((string) $uo) ?></span>
-                                                                </div>
-                                                            </td>
-                                                            <?php foreach ($presidenciaAulasPanel['items'] as $item): ?>
-                                                                <td class="metric-cell"<?= ($style = buildTextColorStyle((string) $item['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>>
-                                                                    <strong><?= formatMetricValue((int) ($presidenciaAulasPanel['rows_by_uo'][$uo][$item['key']] ?? 0), (string) ($item['empty_display'] ?? 'zero')) ?></strong>
-                                                                </td>
-                                                            <?php endforeach; ?>
-                                                        </tr>
-                                                    <?php endforeach; ?>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    <?php else: ?>
-                                        <p class="muted">Sem aulas para apresentar.</p>
-                                    <?php endif; ?>
                                 <?php else: ?>
                                     <p class="muted">Sem aulas para apresentar.</p>
                                 <?php endif; ?>
@@ -2632,104 +2819,23 @@ if ($selectedPage === 'presidencia') {
 
                             <section class="panel">
                                 <h2 class="panel-title">
-                                    <?= panelIconSvg((string) ($presidenciaSumariosPanel['icon'] ?? 'document')) ?>
+                                    <?= panelIconSvg('document') ?>
                                     <?= e($sumariosTitle) ?>
                                 </h2>
 
-                                <?php if ($presidenciaSumariosPanel !== []): ?>
-                                    <div class="pres-overview-stats two">
-                                        <?php foreach ($presidenciaSumariosPanel['items'] as $item): ?>
-                                            <article class="summary-card pres-overview-card"<?= ($style = buildCardStyle((string) $item['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>>
-                                                <span class="summary-label"><?= e((string) $item['label']) ?></span>
-                                                <strong class="summary-value"><?= number_format((int) ($presidenciaSumariosPanel['totals'][$item['key']] ?? 0), 0, ',', '.') ?></strong>
+                                <?php if ($sumariosCards !== []): ?>
+                                    <div class="summary-card-grid">
+                                        <?php foreach ($sumariosCards as $card): ?>
+                                            <article class="summary-card"<?= ($style = buildCardStyle((string) $card['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                                <span class="summary-label"><?= e((string) $card['label']) ?></span>
+                                                <strong class="summary-value"><?= number_format((int) $card['count'], 0, ',', '.') ?></strong>
                                             </article>
                                         <?php endforeach; ?>
                                     </div>
-
-                                    <?php if (($presidenciaSumariosPanel['uo_order'] ?? []) !== []): ?>
-                                        <div class="table-shell">
-                                            <table class="pres-overview-table">
-                                                <thead>
-                                                    <tr>
-                                                        <th class="uo-column"><?= e((string) ($presidenciaSumariosPanel['group_label'] ?? 'Unidade Orgânica')) ?></th>
-                                                        <?php foreach ($presidenciaSumariosPanel['items'] as $item): ?>
-                                                            <th class="metric-column"<?= ($style = buildTextColorStyle((string) $item['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>>
-                                                                <span><?= e((string) $item['label']) ?></span>
-                                                            </th>
-                                                        <?php endforeach; ?>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    <?php foreach ($presidenciaSumariosPanel['uo_order'] as $uo): ?>
-                                                        <tr>
-                                                            <td>
-                                                                <div class="uo-cell" title="<?= e(schoolTitle($alertsConfig, (string) $uo)) ?>"<?= ($style = buildSchoolTextStyle($alertsConfig, (string) $uo)) !== '' ? ' style="' . e($style) . '"' : '' ?>>
-                                                                    <?= uoIconSvg() ?>
-                                                                    <span><?= e((string) $uo) ?></span>
-                                                                </div>
-                                                            </td>
-                                                            <?php foreach ($presidenciaSumariosPanel['items'] as $item): ?>
-                                                                <td class="metric-cell"<?= ($style = buildTextColorStyle((string) $item['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>>
-                                                                    <strong><?= formatMetricValue((int) ($presidenciaSumariosPanel['rows_by_uo'][$uo][$item['key']] ?? 0), (string) ($item['empty_display'] ?? 'zero')) ?></strong>
-                                                                </td>
-                                                            <?php endforeach; ?>
-                                                        </tr>
-                                                    <?php endforeach; ?>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    <?php else: ?>
-                                        <p class="muted">Sem sum&aacute;rios para apresentar.</p>
-                                    <?php endif; ?>
                                 <?php else: ?>
-                                    <p class="muted">Sem sum&aacute;rios para apresentar.</p>
+                                    <p class="muted">Sem sumários para apresentar.</p>
                                 <?php endif; ?>
                             </section>
-                        <?php else: ?>
-                        <section class="panel">
-                            <h2 class="panel-title">
-                                <?= panelIconSvg('chart') ?>
-                                <?= e($aulasTitle) ?>
-                            </h2>
-
-                            <?php if ($aulasCards !== []): ?>
-                                <div class="metric-grid">
-                                    <?php foreach ($aulasCards as $card): ?>
-                                        <article class="metric-card"<?= ($style = buildCardStyle((string) $card['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>>
-                                            <div class="metric-card-top">
-                                                <span class="metric-badge"><?= e((string) $card['semester']) ?></span>
-                                                <span class="metric-status"><?= e((string) $card['state']) ?></span>
-                                            </div>
-                                            <strong class="metric-value"><?= number_format((int) $card['count'], 0, ',', '.') ?></strong>
-                                            <span class="metric-unit"><?= e((string) $card['unit']) ?></span>
-                                        </article>
-                                    <?php endforeach; ?>
-                                </div>
-                            <?php else: ?>
-                                <p class="muted">Sem aulas para apresentar.</p>
-                            <?php endif; ?>
-                        </section>
-
-                        <section class="panel">
-                            <h2 class="panel-title">
-                                <?= panelIconSvg('document') ?>
-                                <?= e($sumariosTitle) ?>
-                            </h2>
-
-                            <?php if ($sumariosCards !== []): ?>
-                                <div class="summary-card-grid">
-                                    <?php foreach ($sumariosCards as $card): ?>
-                                        <article class="summary-card"<?= ($style = buildCardStyle((string) $card['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>>
-                                            <span class="summary-label"><?= e((string) $card['label']) ?></span>
-                                            <strong class="summary-value"><?= number_format((int) $card['count'], 0, ',', '.') ?></strong>
-                                        </article>
-                                    <?php endforeach; ?>
-                                </div>
-                            <?php else: ?>
-                                <p class="muted">Sem sumários para apresentar.</p>
-                            <?php endif; ?>
-                        </section>
-
                         <?php endif; ?>
 
                         <?php if ($summaryPanels !== []): ?>
@@ -2848,6 +2954,62 @@ if ($selectedPage === 'presidencia') {
                                     <p class="muted"><?= e($stageMessage !== '' ? $stageMessage : 'Sem dados para apresentar.') ?></p>
                                 <?php endif; ?>
                             </section>
+                        <?php endif; ?>
+
+                        <?php if ($autoMetricPanels !== []): ?>
+                            <?php foreach ($autoMetricPanels as $metricPanel): ?>
+                                <section class="panel">
+                                    <h2 class="panel-title">
+                                        <?= panelIconSvg('chart') ?>
+                                        <?= e((string) $metricPanel['title']) ?>
+                                    </h2>
+
+                                    <div class="summary-card-grid">
+                                        <?php foreach ($metricPanel['items'] as $item): ?>
+                                            <article class="summary-card"<?= ($style = buildCardStyle((string) $item['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                                <span class="summary-label"><?= e((string) $item['label']) ?></span>
+                                                <strong class="summary-value"><?= number_format((int) $item['value'], 0, ',', '.') ?></strong>
+                                            </article>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </section>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+
+                        <?php if ($autoDetailPanels !== []): ?>
+                            <?php foreach ($autoDetailPanels as $detailPanel): ?>
+                                <section class="panel">
+                                    <h2 class="panel-title">
+                                        <?= panelIconSvg('document') ?>
+                                        <?= e((string) $detailPanel['title']) ?>
+                                    </h2>
+
+                                    <?php if (($detailPanel['rows'] ?? []) !== []): ?>
+                                        <div class="table-shell">
+                                            <table>
+                                                <thead>
+                                                    <tr>
+                                                        <?php foreach ($detailPanel['columns'] as $column): ?>
+                                                            <th><?= e(humanizeFieldLabel((string) $column)) ?></th>
+                                                        <?php endforeach; ?>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <?php foreach ($detailPanel['rows'] as $row): ?>
+                                                        <tr>
+                                                            <?php foreach ($detailPanel['columns'] as $column): ?>
+                                                                <td><?= e(formatTableCellValue($row[$column] ?? null)) ?></td>
+                                                            <?php endforeach; ?>
+                                                        </tr>
+                                                    <?php endforeach; ?>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    <?php else: ?>
+                                        <p class="muted">Sem dados para apresentar.</p>
+                                    <?php endif; ?>
+                                </section>
+                            <?php endforeach; ?>
                         <?php endif; ?>
                     </div>
                 </div>
