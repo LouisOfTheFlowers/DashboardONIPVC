@@ -395,6 +395,33 @@ function resolveColor(array $config, string $color, string $paletteKey = 'card_c
     return $color;
 }
 
+function resolveRangeColor(array $config, string $rangeGroup, int $value): string
+{
+    if ($rangeGroup === '') {
+        return '';
+    }
+
+    $rules = is_array($config[$rangeGroup] ?? null) ? $config[$rangeGroup] : [];
+    $rule = findRangeRule($rules, $value);
+
+    return resolveColor($config, (string) ($rule['color'] ?? ''), 'card_colors');
+}
+
+function resolveMetricColor(array $config, array $item, int $value, string $rangesKey = 'ranges'): string
+{
+    $inlineRules = is_array($item[$rangesKey] ?? null) ? $item[$rangesKey] : [];
+    $inlineRule = findRangeRule($inlineRules, $value);
+    $inlineColor = resolveColor($config, (string) ($inlineRule['color'] ?? ''), 'card_colors');
+
+    if ($inlineColor !== '') {
+        return $inlineColor;
+    }
+
+    $rangeColor = resolveRangeColor($config, (string) ($item['range_group'] ?? ''), $value);
+
+    return $rangeColor !== '' ? $rangeColor : (string) ($item['color'] ?? '');
+}
+
 function resolveSchoolColor(array $schoolColors, string $school): string
 {
     $entry = lookupConfigEntry($schoolColors, $school);
@@ -1223,6 +1250,7 @@ function normalizeCardPanelItems(array $panelConfig, array $config): array
     $items = is_array($panelConfig['items'] ?? null) ? $panelConfig['items'] : [];
     $configGroupKey = (string) ($panelConfig['config_group'] ?? '');
     $configGroup = $configGroupKey !== '' && is_array($config[$configGroupKey] ?? null) ? $config[$configGroupKey] : [];
+    $defaultRangeGroup = (string) ($panelConfig['range_group'] ?? $panelConfig['count_field'] ?? '');
     $normalized = [];
 
     foreach ($items as $item) {
@@ -1246,6 +1274,9 @@ function normalizeCardPanelItems(array $panelConfig, array $config): array
             'source_label' => $sourceLabel,
             'state_values' => itemStateValues($item),
             'color' => $color,
+            'ranges' => is_array($item['ranges'] ?? null) ? $item['ranges'] : [],
+            'table_ranges' => is_array($item['table_ranges'] ?? null) ? $item['table_ranges'] : [],
+            'range_group' => (string) ($item['range_group'] ?? $defaultRangeGroup),
             'empty_display' => (string) ($item['empty_display'] ?? 'zero'),
         ];
     }
@@ -2747,9 +2778,11 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                                         <?php $statsClass = count($items) === 3 ? 'three' : (count($items) === 2 ? 'two' : ''); ?>
                                         <div class="pres-overview-stats <?= e($statsClass) ?>">
                                             <?php foreach ($items as $item): ?>
-                                                <article class="summary-card pres-overview-card"<?= ($style = buildCardStyle((string) $item['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                                <?php $totalValue = (int) ($overviewPanel['totals'][$item['key']] ?? 0); ?>
+                                                <?php $totalColor = resolveMetricColor($alertsConfig, $item, $totalValue); ?>
+                                                <article class="summary-card pres-overview-card"<?= ($style = buildCardStyle($totalColor)) !== '' ? ' style="' . e($style) . '"' : '' ?>>
                                                     <span class="summary-label"><?= e((string) $item['label']) ?></span>
-                                                    <strong class="summary-value"><?= number_format((int) ($overviewPanel['totals'][$item['key']] ?? 0), 0, ',', '.') ?></strong>
+                                                    <strong class="summary-value"><?= number_format($totalValue, 0, ',', '.') ?></strong>
                                                 </article>
                                             <?php endforeach; ?>
                                         </div>
@@ -2777,8 +2810,10 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                                                                     </div>
                                                                 </td>
                                                                 <?php foreach ($items as $item): ?>
-                                                                    <td class="metric-cell"<?= ($style = buildTextColorStyle((string) $item['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>>
-                                                                        <strong><?= formatMetricValue((int) ($overviewPanel['rows_by_uo'][$uo][$item['key']] ?? 0), (string) ($item['empty_display'] ?? 'zero')) ?></strong>
+                                                                    <?php $cellValue = (int) ($overviewPanel['rows_by_uo'][$uo][$item['key']] ?? 0); ?>
+                                                                    <?php $cellColor = resolveMetricColor($alertsConfig, $item, $cellValue, 'table_ranges'); ?>
+                                                                    <td class="metric-cell"<?= ($style = buildTextColorStyle($cellColor)) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                                                        <strong><?= formatMetricValue($cellValue, (string) ($item['empty_display'] ?? 'zero')) ?></strong>
                                                                     </td>
                                                                 <?php endforeach; ?>
                                                             </tr>
