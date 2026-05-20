@@ -344,22 +344,47 @@ function rgbaColor(string $color, float $alpha): string
 
 function buildCardStyle(string $color): string
 {
-    return '';
+    if (!isHexColor($color)) {
+        return '';
+    }
+
+    return sprintf(
+        'background:%s;border-color:%s;color:%s;',
+        rgbaColor($color, 0.10),
+        rgbaColor($color, 0.30),
+        expandHexColor($color)
+    );
 }
 
 function buildStateBoxStyle(string $color): string
 {
-    return '';
+    if (!isHexColor($color)) {
+        return '';
+    }
+
+    return sprintf(
+        'background:%s;color:%s;',
+        rgbaColor($color, 0.10),
+        expandHexColor($color)
+    );
 }
 
 function buildDotStyle(string $color): string
 {
-    return '';
+    if (!isHexColor($color)) {
+        return '';
+    }
+
+    return 'background:' . expandHexColor($color) . ';';
 }
 
 function buildTextColorStyle(string $color): string
 {
-    return '';
+    if (!isHexColor($color)) {
+        return '';
+    }
+
+    return 'color:' . expandHexColor($color) . ';';
 }
 
 function pageCardStyle(string $page, string $color): string
@@ -3335,9 +3360,9 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                                             <?php foreach ($items as $item): ?>
                                                 <?php $totalValue = (int) ($overviewPanel['totals'][$item['key']] ?? 0); ?>
                                                 <?php $totalColor = resolveMetricColor($alertsConfig, $item, $totalValue); ?>
-                                                <article class="summary-card pres-overview-card"<?= ($style = buildCardStyle($totalColor)) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                                <article class="summary-card pres-overview-card">
                                                     <span class="summary-label"><?= e((string) $item['label']) ?></span>
-                                                    <strong class="summary-value"><?= number_format($totalValue, 0, ',', '.') ?></strong>
+                                                    <strong class="summary-value"<?= ($style = buildTextColorStyle($totalColor)) !== '' ? ' style="' . e($style) . '"' : '' ?>><?= number_format($totalValue, 0, ',', '.') ?></strong>
                                                 </article>
                                             <?php endforeach; ?>
                                         </div>
