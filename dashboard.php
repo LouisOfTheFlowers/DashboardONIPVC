@@ -26,28 +26,28 @@ $availablePages = [
     ],
     'dir_uo' => [
         'label' => 'Direção UO',
-        'url' => 'dir_uo.php',
+        'url' => 'index.php',
         'json' => 'alertsDirUO.json',
         'config' => 'alertsDirUOconfig.json',
         'payload_key' => 'direcao',
     ],
     'pessoal' => [
         'label' => 'Pessoal',
-        'url' => 'pessoal.php',
+        'url' => 'index.php',
         'json' => 'alertsFuncGeral.json',
         'config' => 'alertsFuncGeralconfig.json',
         'payload_key' => 'info_pessoal',
     ],
     'gestao_documental' => [
         'label' => 'Gestão Documental',
-        'url' => 'gestao_documental.php',
+        'url' => 'index.php',
         'json' => 'alertsFuncGeral.json',
         'config' => 'alertsFuncGeralconfig.json',
         'payload_key' => 'ges_doc',
     ],
     'gac' => [
         'label' => 'GAC',
-        'url' => 'gac.php',
+        'url' => 'index.php',
         'json' => 'alertsSA.json',
         'config' => 'alertsSAconfig.json',
         'payload_key' => 'gac',
@@ -413,6 +413,33 @@ function resolveColor(array $config, string $color, string $paletteKey = 'card_c
     return $color;
 }
 
+function resolveRangeColor(array $config, string $rangeGroup, int $value): string
+{
+    if ($rangeGroup === '') {
+        return '';
+    }
+
+    $rules = is_array($config[$rangeGroup] ?? null) ? $config[$rangeGroup] : [];
+    $rule = findRangeRule($rules, $value);
+
+    return resolveColor($config, (string) ($rule['color'] ?? ''), 'card_colors');
+}
+
+function resolveMetricColor(array $config, array $item, int $value, string $rangesKey = 'ranges'): string
+{
+    $inlineRules = is_array($item[$rangesKey] ?? null) ? $item[$rangesKey] : [];
+    $inlineRule = findRangeRule($inlineRules, $value);
+    $inlineColor = resolveColor($config, (string) ($inlineRule['color'] ?? ''), 'card_colors');
+
+    if ($inlineColor !== '') {
+        return $inlineColor;
+    }
+
+    $rangeColor = resolveRangeColor($config, (string) ($item['range_group'] ?? ''), $value);
+
+    return $rangeColor !== '' ? $rangeColor : (string) ($item['color'] ?? '');
+}
+
 function resolveSchoolColor(array $schoolColors, string $school): string
 {
     $entry = lookupConfigEntry($schoolColors, $school);
@@ -651,6 +678,7 @@ function buildAutomaticSummaryPanels(
     array $groups,
     array &$skipLookup,
     array $stateConfig,
+    array $config,
     string $selectedSemester
 ): array {
     $panels = [];
@@ -676,7 +704,7 @@ function buildAutomaticSummaryPanels(
         $filteredRows = $semesterField !== '' ? filterRows($rows, $selectedSemester, '', $semesterField, '') : $rows;
         $panels[] = [
             'title' => (string) ($group['ds'] ?? $groupKey),
-            'items' => buildStateSummaryCards($filteredRows, $stateConfig, $stateField, $countField),
+            'items' => buildStateSummaryCards($filteredRows, $stateConfig, $stateField, $countField, $config, $countField),
         ];
         appendSkippedGroup($skipLookup, $groupKey);
     }
@@ -729,6 +757,9 @@ function buildProfileUrl(string $profile, array $params = []): string
     global $availablePages;
 
     $baseUrl = (string) ($availablePages[$profile]['url'] ?? 'index.php');
+    if ($baseUrl === 'index.php') {
+        $params = ['profile' => $profile] + $params;
+    }
     $query = array_filter(
         $params,
         static fn (mixed $value): bool => $value !== null && $value !== ''
@@ -960,9 +991,12 @@ function buildStateSummaryCards(
     array $rows,
     array $stateConfig,
     string $stateField = 'estado',
-    string $countField = 'num_ucs'
+    string $countField = 'num_ucs',
+    array $config = [],
+    string $rangeGroup = ''
 ): array {
     $items = [];
+    $rangeGroup = $rangeGroup !== '' ? $rangeGroup : $countField;
 
     foreach ($rows as $row) {
         if (!is_array($row)) {
@@ -975,10 +1009,12 @@ function buildStateSummaryCards(
         }
 
         $configEntry = lookupConfigEntry($stateConfig, $state);
+        $count = (int) ($row[$countField] ?? 0);
+        $rangeColor = resolveRangeColor($config, $rangeGroup, $count);
         $items[] = [
             'label' => $state,
-            'count' => (int) ($row[$countField] ?? 0),
-            'color' => (string) ($configEntry['color'] ?? ''),
+            'count' => $count,
+            'color' => $rangeColor !== '' ? $rangeColor : (string) ($configEntry['color'] ?? ''),
         ];
     }
 
@@ -1272,6 +1308,7 @@ function normalizeCardPanelItems(array $panelConfig, array $config): array
     $items = is_array($panelConfig['items'] ?? null) ? $panelConfig['items'] : [];
     $configGroupKey = (string) ($panelConfig['config_group'] ?? '');
     $configGroup = $configGroupKey !== '' && is_array($config[$configGroupKey] ?? null) ? $config[$configGroupKey] : [];
+    $defaultRangeGroup = (string) ($panelConfig['range_group'] ?? $panelConfig['count_field'] ?? '');
     $normalized = [];
 
     foreach ($items as $item) {
@@ -1295,6 +1332,9 @@ function normalizeCardPanelItems(array $panelConfig, array $config): array
             'source_label' => $sourceLabel,
             'state_values' => itemStateValues($item),
             'color' => $color,
+            'ranges' => is_array($item['ranges'] ?? null) ? $item['ranges'] : [],
+            'table_ranges' => is_array($item['table_ranges'] ?? null) ? $item['table_ranges'] : [],
+            'range_group' => (string) ($item['range_group'] ?? $defaultRangeGroup),
             'empty_display' => (string) ($item['empty_display'] ?? 'zero'),
         ];
     }
@@ -1595,13 +1635,13 @@ if ($selectedPage === 'presidencia') {
     if ($pucRows !== []) {
         $summaryPanels[] = [
             'title' => groupLabel($grupos, ['resumo_estados_puc_pres', 'resumo_estados_puc'], 'Resumo Estados PUCs'),
-            'items' => buildStateSummaryCards($pucRows, $estadoConfig),
+            'items' => buildStateSummaryCards($pucRows, $estadoConfig, 'estado', 'num_ucs', $alertsConfig, 'num_ucs'),
         ];
     }
     if ($rucRows !== []) {
         $summaryPanels[] = [
             'title' => groupLabel($grupos, ['resumo_estados_ruc_pres', 'resumo_estados_ruc'], 'Resumo Estados RUCs'),
-            'items' => buildStateSummaryCards($rucRows, $estadoConfig),
+            'items' => buildStateSummaryCards($rucRows, $estadoConfig, 'estado', 'num_ucs', $alertsConfig, 'num_ucs'),
         ];
     }
 
@@ -1653,11 +1693,11 @@ if ($selectedPage === 'presidencia') {
 
     $summaryPanels[] = [
         'title' => groupLabel($grupos, ['resumo_estados_puc_cc', 'resumo_estados_puc'], 'Resumo Estados PUCs'),
-        'items' => buildStateSummaryCards(groupDataRows($grupos, ['resumo_estados_puc_cc', 'resumo_estados_puc'], $selectedSemester), $estadoConfig),
+        'items' => buildStateSummaryCards(groupDataRows($grupos, ['resumo_estados_puc_cc', 'resumo_estados_puc'], $selectedSemester), $estadoConfig, 'estado', 'num_ucs', $alertsConfig, 'num_ucs'),
     ];
     $summaryPanels[] = [
         'title' => groupLabel($grupos, ['resumo_estados_ruc_cc', 'resumo_estados_ruc'], 'Resumo Estados RUCs'),
-        'items' => buildStateSummaryCards(groupDataRows($grupos, ['resumo_estados_ruc_cc', 'resumo_estados_ruc'], $selectedSemester), $estadoConfig),
+        'items' => buildStateSummaryCards(groupDataRows($grupos, ['resumo_estados_ruc_cc', 'resumo_estados_ruc'], $selectedSemester), $estadoConfig, 'estado', 'num_ucs', $alertsConfig, 'num_ucs'),
     ];
 
     $ccPucEntries = buildEntryCards(groupDataRows($grupos, ['estado_pucs_cc'], $selectedSemester), $estadoConfig);
@@ -1842,7 +1882,7 @@ if ($selectedPage === 'presidencia') {
 
 $summaryPanels = array_merge(
     $summaryPanels,
-    buildAutomaticSummaryPanels($grupos, $renderedGroupLookup, $estadoConfig, $selectedSemester)
+    buildAutomaticSummaryPanels($grupos, $renderedGroupLookup, $estadoConfig, $alertsConfig, $selectedSemester)
 );
 $entrySections = array_merge(
     $entrySections,
@@ -3293,9 +3333,11 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                                         <?php $statsClass = count($items) === 3 ? 'three' : (count($items) === 2 ? 'two' : ''); ?>
                                         <div class="pres-overview-stats <?= e($statsClass) ?>">
                                             <?php foreach ($items as $item): ?>
-                                                <article class="summary-card pres-overview-card"<?= ($style = pageCardStyle($selectedPage, (string) $item['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                                <?php $totalValue = (int) ($overviewPanel['totals'][$item['key']] ?? 0); ?>
+                                                <?php $totalColor = resolveMetricColor($alertsConfig, $item, $totalValue); ?>
+                                                <article class="summary-card pres-overview-card"<?= ($style = buildCardStyle($totalColor)) !== '' ? ' style="' . e($style) . '"' : '' ?>>
                                                     <span class="summary-label"><?= e((string) $item['label']) ?></span>
-                                                    <strong class="summary-value"><?= number_format((int) ($overviewPanel['totals'][$item['key']] ?? 0), 0, ',', '.') ?></strong>
+                                                    <strong class="summary-value"><?= number_format($totalValue, 0, ',', '.') ?></strong>
                                                 </article>
                                             <?php endforeach; ?>
                                         </div>
@@ -3307,7 +3349,7 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                                                         <tr>
                                                             <th class="uo-column"><?= e((string) ($overviewPanel['group_label'] ?? 'Grupo')) ?></th>
                                                             <?php foreach ($items as $item): ?>
-                                                                <th class="metric-column"<?= ($style = pageTextColorStyle($selectedPage, (string) $item['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                                                <th class="metric-column">
                                                                     <span><?= e((string) $item['label']) ?></span>
                                                                 </th>
                                                             <?php endforeach; ?>
@@ -3323,8 +3365,10 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                                                                     </div>
                                                                 </td>
                                                                 <?php foreach ($items as $item): ?>
-                                                                    <td class="metric-cell"<?= ($style = pageTextColorStyle($selectedPage, (string) $item['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>>
-                                                                        <strong><?= formatMetricValue((int) ($overviewPanel['rows_by_uo'][$uo][$item['key']] ?? 0), (string) ($item['empty_display'] ?? 'zero')) ?></strong>
+                                                                    <?php $cellValue = (int) ($overviewPanel['rows_by_uo'][$uo][$item['key']] ?? 0); ?>
+                                                                    <?php $cellColor = resolveMetricColor($alertsConfig, $item, $cellValue, 'table_ranges'); ?>
+                                                                    <td class="metric-cell"<?= ($style = buildTextColorStyle($cellColor)) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                                                        <strong><?= formatMetricValue($cellValue, (string) ($item['empty_display'] ?? 'zero')) ?></strong>
                                                                     </td>
                                                                 <?php endforeach; ?>
                                                             </tr>
@@ -3396,9 +3440,9 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
 
                                         <div class="summary-state-list">
                                             <?php foreach ($panel['items'] as $item): ?>
-                                                <div class="summary-state-item"<?= ($style = pageCardStyle($selectedPage, (string) $item['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                                <div class="summary-state-item">
                                                     <span><?= e((string) $item['label']) ?></span>
-                                                    <strong><?= number_format((int) $item['count'], 0, ',', '.') ?></strong>
+                                                    <strong<?= ($style = buildTextColorStyle((string) $item['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>><?= number_format((int) $item['count'], 0, ',', '.') ?></strong>
                                                 </div>
                                             <?php endforeach; ?>
                                         </div>

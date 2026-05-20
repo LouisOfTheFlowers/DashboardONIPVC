@@ -1,0 +1,55 @@
+{
+  "qnt_msg_por_ler": [
+    { "min": 0, "max": 0, "color": "#22c55e", "label": "Sem mensagens" },
+    { "min": 1, "max": 5, "color": "#eab308", "label": "Poucas" },
+    { "min": 6, "max": 9999, "color": "#ef4444", "label": "Muitas" }
+  ],
+
+  "qnt_tarefas": [
+    { "min": 0, "max": 5, "color": "#22c55e" },
+    { "min": 6, "max": 20, "color": "#eab308" },
+    { "min": 21, "max": 9999, "color": "#ef4444" }
+  ],
+
+  "qnt_pedidos": [
+    { "min": 0, "max": 5, "color": "#22c55e" },
+    { "min": 6, "max": 15, "color": "#eab308" },
+    { "min": 16, "max": 9999, "color": "#ef4444" }
+  ],
+
+  "qnt_por_ler": [
+    { "min": 0, "max": 5, "color": "#22c55e" },
+    { "min": 6, "max": 20, "color": "#eab308" },
+    { "min": 21, "max": 9999, "color": "#ef4444" }
+  ],
+
+  "abertas": [
+    { "min": 0, "max": 20, "color": "#22c55e" },
+    { "min": 21, "max": 100, "color": "#eab308" },
+    { "min": 101, "max": 9999, "color": "#ef4444" }
+  ],
+
+  "novas": [
+    { "min": 0, "max": 50, "color": "#22c55e" },
+    { "min": 51, "max": 200, "color": "#eab308" },
+    { "min": 201, "max": 9999, "color": "#ef4444" }
+  ],
+
+  "por_submeter": [
+    { "min": 0, "max": 0, "color": "#22c55e" },
+    { "min": 1, "max": 5, "color": "#eab308" },
+    { "min": 6, "max": 9999, "color": "#ef4444" }
+  ],
+
+  "processos_abertos": [
+    { "min": 0, "max": 1, "color": "#22c55e" },
+    { "min": 2, "max": 5, "color": "#eab308" },
+    { "min": 6, "max": 9999, "color": "#ef4444" }
+  ],
+
+  "datas_validade": [
+    { "days": 30, "color": "#ef4444", "label": "Expira em breve" },
+    { "days": 90, "color": "#eab308", "label": "Atenção" },
+    { "days": 9999, "color": "#22c55e", "label": "Válido" }
+  ]
+}
