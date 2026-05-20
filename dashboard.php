@@ -24,6 +24,34 @@ $availablePages = [
         'config' => 'alertsDocenteconfig.json',
         'payload_key' => 'docente',
     ],
+    'dir_uo' => [
+        'label' => 'Direção UO',
+        'url' => 'index.php',
+        'json' => 'alertsDirUO.json',
+        'config' => 'alertsDirUOconfig.json',
+        'payload_key' => 'direcao',
+    ],
+    'pessoal' => [
+        'label' => 'Pessoal',
+        'url' => 'index.php',
+        'json' => 'alertsFuncGeral.json',
+        'config' => 'alertsFuncGeralconfig.json',
+        'payload_key' => 'info_pessoal',
+    ],
+    'gestao_documental' => [
+        'label' => 'Gestão Documental',
+        'url' => 'index.php',
+        'json' => 'alertsFuncGeral.json',
+        'config' => 'alertsFuncGeralconfig.json',
+        'payload_key' => 'ges_doc',
+    ],
+    'gac' => [
+        'label' => 'GAC',
+        'url' => 'index.php',
+        'json' => 'alertsSA.json',
+        'config' => 'alertsSAconfig.json',
+        'payload_key' => 'gac',
+    ],
 ];
 
 $selectedPage = trim((string) (defined('DASHBOARD_PAGE') ? DASHBOARD_PAGE : ($_GET['profile'] ?? 'presidencia')));
@@ -659,6 +687,7 @@ function buildAutomaticSummaryPanels(
     array $groups,
     array &$skipLookup,
     array $stateConfig,
+    array $config,
     string $selectedSemester
 ): array {
     $panels = [];
@@ -684,7 +713,7 @@ function buildAutomaticSummaryPanels(
         $filteredRows = $semesterField !== '' ? filterRows($rows, $selectedSemester, '', $semesterField, '') : $rows;
         $panels[] = [
             'title' => (string) ($group['ds'] ?? $groupKey),
-            'items' => buildStateSummaryCards($filteredRows, $stateConfig, $stateField, $countField),
+            'items' => buildStateSummaryCards($filteredRows, $stateConfig, $stateField, $countField, $config, $countField),
         ];
         appendSkippedGroup($skipLookup, $groupKey);
     }
@@ -737,6 +766,9 @@ function buildProfileUrl(string $profile, array $params = []): string
     global $availablePages;
 
     $baseUrl = (string) ($availablePages[$profile]['url'] ?? 'index.php');
+    if ($baseUrl === 'index.php') {
+        $params = ['profile' => $profile] + $params;
+    }
     $query = array_filter(
         $params,
         static fn (mixed $value): bool => $value !== null && $value !== ''
@@ -968,9 +1000,12 @@ function buildStateSummaryCards(
     array $rows,
     array $stateConfig,
     string $stateField = 'estado',
-    string $countField = 'num_ucs'
+    string $countField = 'num_ucs',
+    array $config = [],
+    string $rangeGroup = ''
 ): array {
     $items = [];
+    $rangeGroup = $rangeGroup !== '' ? $rangeGroup : $countField;
 
     foreach ($rows as $row) {
         if (!is_array($row)) {
@@ -983,10 +1018,12 @@ function buildStateSummaryCards(
         }
 
         $configEntry = lookupConfigEntry($stateConfig, $state);
+        $count = (int) ($row[$countField] ?? 0);
+        $rangeColor = resolveRangeColor($config, $rangeGroup, $count);
         $items[] = [
             'label' => $state,
-            'count' => (int) ($row[$countField] ?? 0),
-            'color' => (string) ($configEntry['color'] ?? ''),
+            'count' => $count,
+            'color' => $rangeColor !== '' ? $rangeColor : (string) ($configEntry['color'] ?? ''),
         ];
     }
 
@@ -1449,10 +1486,10 @@ $navTabs = [
     ['key' => 'presidencia', 'label' => 'Presidência', 'enabled' => true],
     ['key' => 'cc', 'label' => 'Coordenador de Curso', 'enabled' => true],
     ['key' => 'docente', 'label' => 'Docente', 'enabled' => true],
-    ['key' => 'dir_uo', 'label' => 'Direção UO', 'enabled' => false],
-    ['key' => 'pessoal', 'label' => 'Pessoal', 'enabled' => false],
-    ['key' => 'gestao_documental', 'label' => 'Gestão Documental', 'enabled' => false],
-    ['key' => 'gac', 'label' => 'GAC', 'enabled' => false],
+    ['key' => 'dir_uo', 'label' => 'Direção UO', 'enabled' => true],
+    ['key' => 'pessoal', 'label' => 'Pessoal', 'enabled' => true],
+    ['key' => 'gestao_documental', 'label' => 'Gestão Documental', 'enabled' => true],
+    ['key' => 'gac', 'label' => 'GAC', 'enabled' => true],
 ];
 
 $semesterDatasets = [];
@@ -1570,13 +1607,13 @@ if ($selectedPage === 'presidencia') {
     if ($pucRows !== []) {
         $summaryPanels[] = [
             'title' => groupLabel($grupos, ['resumo_estados_puc_pres', 'resumo_estados_puc'], 'Resumo Estados PUCs'),
-            'items' => buildStateSummaryCards($pucRows, $estadoConfig),
+            'items' => buildStateSummaryCards($pucRows, $estadoConfig, 'estado', 'num_ucs', $alertsConfig, 'num_ucs'),
         ];
     }
     if ($rucRows !== []) {
         $summaryPanels[] = [
             'title' => groupLabel($grupos, ['resumo_estados_ruc_pres', 'resumo_estados_ruc'], 'Resumo Estados RUCs'),
-            'items' => buildStateSummaryCards($rucRows, $estadoConfig),
+            'items' => buildStateSummaryCards($rucRows, $estadoConfig, 'estado', 'num_ucs', $alertsConfig, 'num_ucs'),
         ];
     }
 
@@ -1625,11 +1662,11 @@ if ($selectedPage === 'presidencia') {
 
     $summaryPanels[] = [
         'title' => groupLabel($grupos, ['resumo_estados_puc_cc', 'resumo_estados_puc'], 'Resumo Estados PUCs'),
-        'items' => buildStateSummaryCards(groupDataRows($grupos, ['resumo_estados_puc_cc', 'resumo_estados_puc'], $selectedSemester), $estadoConfig),
+        'items' => buildStateSummaryCards(groupDataRows($grupos, ['resumo_estados_puc_cc', 'resumo_estados_puc'], $selectedSemester), $estadoConfig, 'estado', 'num_ucs', $alertsConfig, 'num_ucs'),
     ];
     $summaryPanels[] = [
         'title' => groupLabel($grupos, ['resumo_estados_ruc_cc', 'resumo_estados_ruc'], 'Resumo Estados RUCs'),
-        'items' => buildStateSummaryCards(groupDataRows($grupos, ['resumo_estados_ruc_cc', 'resumo_estados_ruc'], $selectedSemester), $estadoConfig),
+        'items' => buildStateSummaryCards(groupDataRows($grupos, ['resumo_estados_ruc_cc', 'resumo_estados_ruc'], $selectedSemester), $estadoConfig, 'estado', 'num_ucs', $alertsConfig, 'num_ucs'),
     ];
 
     $ccPucEntries = buildEntryCards(groupDataRows($grupos, ['estado_pucs_cc'], $selectedSemester), $estadoConfig);
@@ -1713,7 +1750,7 @@ if ($selectedPage === 'presidencia') {
 
 $summaryPanels = array_merge(
     $summaryPanels,
-    buildAutomaticSummaryPanels($grupos, $renderedGroupLookup, $estadoConfig, $selectedSemester)
+    buildAutomaticSummaryPanels($grupos, $renderedGroupLookup, $estadoConfig, $alertsConfig, $selectedSemester)
 );
 $entrySections = array_merge(
     $entrySections,
@@ -2794,7 +2831,7 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                                                         <tr>
                                                             <th class="uo-column"><?= e((string) ($overviewPanel['group_label'] ?? 'Grupo')) ?></th>
                                                             <?php foreach ($items as $item): ?>
-                                                                <th class="metric-column"<?= ($style = buildTextColorStyle((string) $item['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                                                <th class="metric-column">
                                                                     <span><?= e((string) $item['label']) ?></span>
                                                                 </th>
                                                             <?php endforeach; ?>
@@ -2885,9 +2922,9 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
 
                                         <div class="summary-state-list">
                                             <?php foreach ($panel['items'] as $item): ?>
-                                                <div class="summary-state-item"<?= ($style = buildCardStyle((string) $item['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                                <div class="summary-state-item">
                                                     <span><?= e((string) $item['label']) ?></span>
-                                                    <strong><?= number_format((int) $item['count'], 0, ',', '.') ?></strong>
+                                                    <strong<?= ($style = buildTextColorStyle((string) $item['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>><?= number_format((int) $item['count'], 0, ',', '.') ?></strong>
                                                 </div>
                                             <?php endforeach; ?>
                                         </div>
