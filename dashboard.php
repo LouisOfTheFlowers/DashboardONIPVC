@@ -1096,24 +1096,56 @@ function formatDateValue(string $value): string
     }
 }
 
-function buildValidityInfo(string $rawDate): array
+function resolveValidityRule(array $config, int $daysRemaining): array
+{
+    $rules = is_array($config['datas_validade'] ?? null) ? $config['datas_validade'] : [];
+
+    foreach ($rules as $rule) {
+        if (!is_array($rule)) {
+            continue;
+        }
+
+        $minDays = array_key_exists('min_days', $rule) ? (int) $rule['min_days'] : PHP_INT_MIN;
+        $maxDays = array_key_exists('max_days', $rule) ? (int) $rule['max_days'] : PHP_INT_MAX;
+        if ($daysRemaining >= $minDays && $daysRemaining <= $maxDays) {
+            return $rule;
+        }
+    }
+
+    if ($daysRemaining < 0) {
+        return ['label' => 'Expirado', 'color' => 'critical'];
+    }
+
+    if ($daysRemaining <= 30) {
+        return ['label' => 'Expira em breve', 'color' => 'warning'];
+    }
+
+    return ['label' => 'Valido', 'color' => 'success'];
+}
+
+function buildValidityInfo(string $rawDate, array $config = []): array
 {
     $dateLabel = formatDateValue($rawDate);
     if ($dateLabel === '') {
-        return ['date' => '-', 'status' => 'Sem data', 'color' => '#eab308'];
+        $color = resolveColor($config, 'warning', 'card_colors');
+        return ['date' => '-', 'status' => 'Sem data', 'color' => $color];
     }
 
     try {
         $date = new DateTimeImmutable($rawDate);
         $today = new DateTimeImmutable('today');
-        if ($date < $today) {
-            return ['date' => $dateLabel, 'status' => 'Expirado', 'color' => '#ef4444'];
-        }
+        $daysRemaining = (int) $today->diff($date)->format('%r%a');
+        $rule = resolveValidityRule($config, $daysRemaining);
+        $color = resolveColor($config, (string) ($rule['color'] ?? ''), 'card_colors');
+        return [
+            'date' => $dateLabel,
+            'status' => (string) ($rule['label'] ?? ''),
+            'color' => $color,
+        ];
     } catch (Exception) {
-        return ['date' => $dateLabel, 'status' => 'Sem validacao', 'color' => '#eab308'];
+        $color = resolveColor($config, 'warning', 'card_colors');
+        return ['date' => $dateLabel, 'status' => 'Sem validacao', 'color' => $color];
     }
-
-    return ['date' => $dateLabel, 'status' => 'Valido', 'color' => '#22c55e'];
 }
 
 function formatAcademicYear(string $value): string
@@ -1159,11 +1191,11 @@ function buildStageMetric(array $group, array $config): array
             continue;
         }
 
-        $rule = findRangeRule(is_array($config[$field] ?? null) ? $config[$field] : [], (int) $value);
+        $color = resolveRangeColor($config, (string) $field, (int) $value);
         return [
             'label' => humanizeFieldLabel((string) $field),
             'value' => (int) $value,
-            'color' => (string) ($rule['color'] ?? ''),
+            'color' => $color,
         ];
     }
 
@@ -1568,7 +1600,6 @@ $scopeAllLabel = 'Todas as UO';
 $descricaoConfig = is_array($alertsConfig['descricao'] ?? null) ? $alertsConfig['descricao'] : [];
 $descricaoEstadoConfig = is_array($alertsConfig['descricao_estado'] ?? null) ? $alertsConfig['descricao_estado'] : [];
 $estadoConfig = is_array($alertsConfig['estado'] ?? null) ? $alertsConfig['estado'] : [];
-$regenteConfig = is_array($alertsConfig['regente'] ?? null) ? $alertsConfig['regente'] : [];
 
 $pageTitle = (string) ($dashboardProfile['ds_grupo'] ?? 'Presidencia');
 $heroTitle = 'Dashboard – ' . $pageTitle;
@@ -1594,7 +1625,10 @@ $presidenciaSumariosPanel = [];
 $pessoalInfoCards = [];
 $pessoalDespachosPorLer = 0;
 $pessoalGestaoPedidos = ['mensagens' => 0, 'tarefas' => 0, 'pedidos' => 0];
+$pessoalDespachosColor = '';
+$pessoalGestaoPedidosColors = ['mensagens' => '', 'tarefas' => '', 'pedidos' => ''];
 $docTarefas = ['abertas' => 0, 'novas' => 0, 'por_submeter' => 0, 'processos_abertos' => 0];
+$docTarefasColors = ['abertas' => '', 'novas' => '', 'por_submeter' => '', 'processos_abertos' => ''];
 $docResumoTotal = 0;
 $gacPedidos = [];
 $configuredCardPanelConfigs = configuredCardPanelConfigs($alertsConfig);
@@ -1689,10 +1723,6 @@ if ($selectedPage === 'presidencia') {
     foreach ($ucsBySigla as $disciplinas) {
         $totalUcsSemDocente += count($disciplinas);
     }
-    $ucsSemDocenteRule = findRangeRule(
-        is_array($alertsConfig['ucs_sem_docente_count'] ?? null) ? $alertsConfig['ucs_sem_docente_count'] : [],
-        $totalUcsSemDocente
-    );
     $ucsSemDocenteTitleStyle = '';
 } elseif ($selectedPage === 'dir_uo') {
     $replacementCards = buildReplacementCards(groupDataRows($grupos, ['pedidos_substituicao_dir']));
@@ -1778,8 +1808,12 @@ if ($selectedPage === 'presidencia') {
         'items' => buildEntryCards(groupDataRows($grupos, ['estado_rucs_docente'], $selectedSemester), $estadoConfig),
     ];
 
+    $stageGroup = findGroup($grupos, ['estagios']);
     $stageTitle = groupLabel($grupos, ['estagios'], 'Estágios');
-    $stageMessage = 'Sem estágios atribuídos.';
+    $stageMetric = buildStageMetric($stageGroup, $alertsConfig);
+    if ($stageMetric === []) {
+        $stageMessage = 'Sem estágios atribuídos.';
+    }
 }
 
 if ($selectedPage === 'dir_uo') {
@@ -1820,6 +1854,7 @@ if ($selectedPage === 'dir_uo') {
         $dirUoStageItems[] = [
             'label' => $label,
             'value' => (int) $value,
+            'color' => resolveRangeColor($alertsConfig, $field, (int) $value),
         ];
     }
 }
@@ -1829,8 +1864,8 @@ if ($selectedPage === 'pessoal') {
     $infoPessoalRows = is_array($infoPessoalGroup['dados'] ?? null) ? $infoPessoalGroup['dados'] : [];
     $infoPessoalRow = (isset($infoPessoalRows[0]) && is_array($infoPessoalRows[0])) ? $infoPessoalRows[0] : [];
 
-    $adseInfo = buildValidityInfo((string) ($infoPessoalRow['DataValidadeADSE'] ?? ''));
-    $biInfo = buildValidityInfo((string) ($infoPessoalRow['DataValidadeBI'] ?? ''));
+    $adseInfo = buildValidityInfo((string) ($infoPessoalRow['DataValidadeADSE'] ?? ''), $alertsConfig);
+    $biInfo = buildValidityInfo((string) ($infoPessoalRow['DataValidadeBI'] ?? ''), $alertsConfig);
     $pessoalInfoCards = [
         ['label' => 'Validade ADSE', 'date' => (string) $adseInfo['date'], 'status' => (string) $adseInfo['status'], 'color' => (string) $adseInfo['color']],
         ['label' => 'Validade BI', 'date' => (string) $biInfo['date'], 'status' => (string) $biInfo['status'], 'color' => (string) $biInfo['color']],
@@ -1839,6 +1874,7 @@ if ($selectedPage === 'pessoal') {
     $despachosGroup = findGroup($grupos, ['despachos_presidencia']);
     $despachosData = is_array($despachosGroup['dados'] ?? null) ? $despachosGroup['dados'] : [];
     $pessoalDespachosPorLer = (int) ($despachosData['qnt_por_ler'] ?? 0);
+    $pessoalDespachosColor = resolveRangeColor($alertsConfig, 'qnt_por_ler', $pessoalDespachosPorLer);
 
     $gpedidosGroup = findGroup($grupos, ['gpedidos']);
     $gpedidosData = is_array($gpedidosGroup['dados'] ?? null) ? $gpedidosGroup['dados'] : [];
@@ -1846,6 +1882,11 @@ if ($selectedPage === 'pessoal') {
         'mensagens' => (int) ($gpedidosData['qnt_msg_por_ler'] ?? 0),
         'tarefas' => (int) ($gpedidosData['qnt_tarefas'] ?? 0),
         'pedidos' => (int) ($gpedidosData['qnt_pedidos'] ?? 0),
+    ];
+    $pessoalGestaoPedidosColors = [
+        'mensagens' => resolveRangeColor($alertsConfig, 'qnt_msg_por_ler', $pessoalGestaoPedidos['mensagens']),
+        'tarefas' => resolveRangeColor($alertsConfig, 'qnt_tarefas', $pessoalGestaoPedidos['tarefas']),
+        'pedidos' => resolveRangeColor($alertsConfig, 'qnt_pedidos', $pessoalGestaoPedidos['pedidos']),
     ];
 } elseif ($selectedPage === 'gestao_documental') {
     $tarefasGroup = findGroup($grupos, ['tarefas']);
@@ -1856,6 +1897,12 @@ if ($selectedPage === 'pessoal') {
         'novas' => (int) ($tarefasData['novas'] ?? 0),
         'por_submeter' => (int) ($tarefasData['por_submeter'] ?? 0),
         'processos_abertos' => (int) ($tarefasData['processos_abertos'] ?? 0),
+    ];
+    $docTarefasColors = [
+        'abertas' => resolveRangeColor($alertsConfig, 'abertas', $docTarefas['abertas']),
+        'novas' => resolveRangeColor($alertsConfig, 'novas', $docTarefas['novas']),
+        'por_submeter' => resolveRangeColor($alertsConfig, 'por_submeter', $docTarefas['por_submeter']),
+        'processos_abertos' => resolveRangeColor($alertsConfig, 'processos_abertos', $docTarefas['processos_abertos']),
     ];
 
     $docResumoTotal = $docTarefas['abertas'] + $docTarefas['novas'];
@@ -1874,7 +1921,7 @@ if ($selectedPage === 'pessoal') {
             'data_aula' => formatDateValue((string) ($row['data_aula'] ?? '')),
             'ano_letivo' => formatAcademicYear((string) ($row['cd_letivo'] ?? '')),
             'num_pedidos' => $numPedidos,
-            'color' => (string) ($rule['color'] ?? '#22c55e'),
+            'color' => resolveRangeColor($alertsConfig, 'num_pedidos', $numPedidos) ?: (string) ($rule['color'] ?? '#22c55e'),
         ];
     }
 }
@@ -2393,22 +2440,32 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
         }
 
         .pessoal-grid-two {
-            grid-template-columns: repeat(2, minmax(0, 240px));
+            grid-template-columns: repeat(2, 180px);
             justify-content: center;
             column-gap: clamp(90px, 18vw, 260px);
         }
 
         .pessoal-grid-three {
-            grid-template-columns: repeat(3, minmax(0, 170px));
+            grid-template-columns: repeat(3, 170px);
             justify-content: center;
-            column-gap: clamp(70px, 10vw, 150px);
+            column-gap: clamp(55px, 8vw, 120px);
         }
 
         .pessoal-card,
         .doc-card {
+            background: #fff;
+            border-color: var(--line);
+            color: var(--text);
             text-align: left;
             min-height: 70px;
             padding: 10px 12px;
+        }
+
+        .pessoal-card .summary-label,
+        .pessoal-card .metric-unit,
+        .doc-card .summary-label,
+        .doc-card .metric-unit {
+            color: var(--text);
         }
 
         .pessoal-grid-two .pessoal-card,
@@ -3246,9 +3303,9 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                                 </h2>
                                 <div class="summary-card-grid pessoal-grid-two">
                                     <?php foreach ($pessoalInfoCards as $card): ?>
-                                        <article class="summary-card pessoal-card"<?= ($style = buildCardStyle((string) $card['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                        <article class="summary-card pessoal-card">
                                             <span class="summary-label"><?= e((string) $card['label']) ?></span>
-                                            <strong class="summary-value"><?= e((string) $card['date']) ?></strong>
+                                            <strong class="summary-value"<?= ($style = buildTextColorStyle((string) $card['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>><?= e((string) $card['date']) ?></strong>
                                             <span class="metric-unit"><?= e((string) $card['status']) ?></span>
                                         </article>
                                     <?php endforeach; ?>
@@ -3261,9 +3318,9 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                                     Despachos da Presid&ecirc;ncia
                                 </h2>
                                 <div class="summary-card-grid pessoal-single">
-                                    <article class="summary-card pessoal-card"<?= ($style = buildCardStyle('#eab308')) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                    <article class="summary-card pessoal-card">
                                         <span class="summary-label">Despachos por ler</span>
-                                        <strong class="summary-value"><?= number_format($pessoalDespachosPorLer, 0, ',', '.') ?></strong>
+                                        <strong class="summary-value"<?= ($style = buildTextColorStyle($pessoalDespachosColor)) !== '' ? ' style="' . e($style) . '"' : '' ?>><?= number_format($pessoalDespachosPorLer, 0, ',', '.') ?></strong>
                                     </article>
                                 </div>
                             </section>
@@ -3274,17 +3331,17 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                                     Gest&atilde;o de Pedidos
                                 </h2>
                                 <div class="summary-card-grid pessoal-grid-three">
-                                    <article class="summary-card pessoal-card"<?= ($style = buildCardStyle('#eab308')) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                    <article class="summary-card pessoal-card">
                                         <span class="summary-label">Mensagens por Ler</span>
-                                        <strong class="summary-value"><?= number_format((int) $pessoalGestaoPedidos['mensagens'], 0, ',', '.') ?></strong>
+                                        <strong class="summary-value"<?= ($style = buildTextColorStyle($pessoalGestaoPedidosColors['mensagens'])) !== '' ? ' style="' . e($style) . '"' : '' ?>><?= number_format((int) $pessoalGestaoPedidos['mensagens'], 0, ',', '.') ?></strong>
                                     </article>
-                                    <article class="summary-card pessoal-card"<?= ($style = buildCardStyle('#ef4444')) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                    <article class="summary-card pessoal-card">
                                         <span class="summary-label">Tarefas Pendentes</span>
-                                        <strong class="summary-value"><?= number_format((int) $pessoalGestaoPedidos['tarefas'], 0, ',', '.') ?></strong>
+                                        <strong class="summary-value"<?= ($style = buildTextColorStyle($pessoalGestaoPedidosColors['tarefas'])) !== '' ? ' style="' . e($style) . '"' : '' ?>><?= number_format((int) $pessoalGestaoPedidos['tarefas'], 0, ',', '.') ?></strong>
                                     </article>
-                                    <article class="summary-card pessoal-card"<?= ($style = buildCardStyle('#2563eb')) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                    <article class="summary-card pessoal-card">
                                         <span class="summary-label">Pedidos</span>
-                                        <strong class="summary-value"><?= number_format((int) $pessoalGestaoPedidos['pedidos'], 0, ',', '.') ?></strong>
+                                        <strong class="summary-value"<?= ($style = buildTextColorStyle($pessoalGestaoPedidosColors['pedidos'])) !== '' ? ' style="' . e($style) . '"' : '' ?>><?= number_format((int) $pessoalGestaoPedidos['pedidos'], 0, ',', '.') ?></strong>
                                     </article>
                                 </div>
                             </section>
@@ -3296,24 +3353,24 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                                 </h2>
 
                                 <div class="doc-grid">
-                                    <article class="summary-card doc-card"<?= ($style = buildCardStyle('#ef4444')) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                    <article class="summary-card doc-card">
                                         <span class="summary-label">Abertas</span>
-                                        <strong class="summary-value"><?= number_format((int) $docTarefas['abertas'], 0, ',', '.') ?></strong>
+                                        <strong class="summary-value"<?= ($style = buildTextColorStyle($docTarefasColors['abertas'])) !== '' ? ' style="' . e($style) . '"' : '' ?>><?= number_format((int) $docTarefas['abertas'], 0, ',', '.') ?></strong>
                                         <span class="metric-unit">Tarefas em andamento</span>
                                     </article>
-                                    <article class="summary-card doc-card"<?= ($style = buildCardStyle('#ef4444')) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                    <article class="summary-card doc-card">
                                         <span class="summary-label">Novas</span>
-                                        <strong class="summary-value"><?= number_format((int) $docTarefas['novas'], 0, ',', '.') ?></strong>
+                                        <strong class="summary-value"<?= ($style = buildTextColorStyle($docTarefasColors['novas'])) !== '' ? ' style="' . e($style) . '"' : '' ?>><?= number_format((int) $docTarefas['novas'], 0, ',', '.') ?></strong>
                                         <span class="metric-unit">Recentemente atribuidas</span>
                                     </article>
-                                    <article class="summary-card doc-card"<?= ($style = buildCardStyle('#22c55e')) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                    <article class="summary-card doc-card">
                                         <span class="summary-label">Por Submeter</span>
-                                        <strong class="summary-value"><?= number_format((int) $docTarefas['por_submeter'], 0, ',', '.') ?></strong>
+                                        <strong class="summary-value"<?= ($style = buildTextColorStyle($docTarefasColors['por_submeter'])) !== '' ? ' style="' . e($style) . '"' : '' ?>><?= number_format((int) $docTarefas['por_submeter'], 0, ',', '.') ?></strong>
                                         <span class="metric-unit">Aguardam submissao</span>
                                     </article>
-                                    <article class="summary-card doc-card"<?= ($style = buildCardStyle('#2563eb')) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                    <article class="summary-card doc-card">
                                         <span class="summary-label">Processos Abertos</span>
-                                        <strong class="summary-value"><?= number_format((int) $docTarefas['processos_abertos'], 0, ',', '.') ?></strong>
+                                        <strong class="summary-value"<?= ($style = buildTextColorStyle($docTarefasColors['processos_abertos'])) !== '' ? ' style="' . e($style) . '"' : '' ?>><?= number_format((int) $docTarefas['processos_abertos'], 0, ',', '.') ?></strong>
                                         <span class="metric-unit">Processos ativos</span>
                                     </article>
                                 </div>
@@ -3328,7 +3385,7 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                                 <?php if ($gacPedidos !== []): ?>
                                     <div class="gac-list gac-scroll-list">
                                         <?php foreach ($gacPedidos as $pedido): ?>
-                                            <article class="gac-item"<?= ($style = buildCardStyle((string) $pedido['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                            <article class="gac-item">
                                                 <div>
                                                     <div class="gac-item-title">Data da Aula: <?= e((string) $pedido['data_aula']) ?></div>
                                                     <div class="gac-item-subtitle">Ano Letivo: <?= e((string) $pedido['ano_letivo']) ?></div>
@@ -3514,7 +3571,7 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
 
                                 <div class="entry-list<?= $selectedPage === 'cc' ? ' scroll-entry-list' : '' ?>">
                                     <?php foreach ($replacementCards as $item): ?>
-                                        <article class="entry-card replacement-card"<?= ($style = pageCardStyle($selectedPage, '#eab308')) !== '' ? ' style="' . e($style) . '"' : '' ?>>
+                                        <article class="entry-card replacement-card">
                                             <strong class="entry-title"><?= e((string) $item['title']) ?></strong>
                                             <span class="entry-subtitle">Turno: <?= e((string) $item['turno']) ?> · Ano: <?= e((string) $item['ano_letivo']) ?></span>
                                             <span class="entry-meta">Aula: <?= e((string) $item['data_aula']) ?> → Definitiva: <?= e((string) $item['data_definitiva']) ?></span>
@@ -3562,7 +3619,7 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                                     <?php foreach ($dirUoStageItems as $item): ?>
                                         <article class="summary-card">
                                             <span class="summary-label"><?= e((string) $item['label']) ?></span>
-                                            <strong class="summary-value"><?= number_format((int) $item['value'], 0, ',', '.') ?></strong>
+                                            <strong class="summary-value"<?= ($style = buildTextColorStyle((string) $item['color'])) !== '' ? ' style="' . e($style) . '"' : '' ?>><?= number_format((int) $item['value'], 0, ',', '.') ?></strong>
                                         </article>
                                     <?php endforeach; ?>
                                 </div>
