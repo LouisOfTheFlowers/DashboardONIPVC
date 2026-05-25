@@ -1,0 +1,33 @@
+{
+    "_meta": {
+        "schema_version": 1,
+        "dashboard": "gac",
+        "data_file": "alertsSA.json",
+        "visual_mode": "neutral"
+    },
+    "card_colors": {
+        "success": "#22c55e",
+        "warning": "#eab308",
+        "critical": "#ef4444"
+    },
+    "num_pedidos": [
+        {
+            "min": 0,
+            "max": 3,
+            "color": "success",
+            "label": "Normal"
+        },
+        {
+            "min": 4,
+            "max": 8,
+            "color": "warning",
+            "label": "Elevado"
+        },
+        {
+            "min": 9,
+            "max": 999,
+            "color": "critical",
+            "label": "Pico"
+        }
+    ]
+}
