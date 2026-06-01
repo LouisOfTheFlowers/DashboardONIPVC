@@ -1463,6 +1463,7 @@ function buildCardPanels(
 
         $title = trim((string) ($panelConfig['title'] ?? ''));
         $panels[] = [
+            'id' => $groupKey,
             'title' => titleWithSemester($title !== '' ? $title : (string) ($group['ds'] ?? $groupKey), $selectedSemester),
             'icon' => (string) ($panelConfig['icon'] ?? 'chart'),
             'items' => $items,
@@ -2331,6 +2332,50 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
             max-width: 100%;
             display: grid;
             gap: 22px;
+        }
+
+        .personalization-bar {
+            margin: -8px 0 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            padding: 10px 14px;
+            border: 1px dashed #cbd5e1;
+            border-radius: 14px;
+            background: #f8fafc;
+            color: #41536d;
+            font-size: 0.86rem;
+        }
+
+        .personalization-bar button {
+            border: 1px solid #cbd5e1;
+            border-radius: 999px;
+            padding: 7px 12px;
+            background: #fff;
+            color: var(--text);
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .dashboard-sortable [data-sortable-panel] {
+            cursor: grab;
+            transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+        }
+
+        .dashboard-sortable [data-sortable-panel]:active {
+            cursor: grabbing;
+        }
+
+        .dashboard-sortable [data-sortable-panel].is-dragging {
+            opacity: 0.55;
+            transform: scale(0.99);
+            box-shadow: 0 18px 42px rgba(15, 35, 68, 0.16);
+        }
+
+        .dashboard-sortable [data-sortable-panel].is-drag-over {
+            outline: 2px dashed #64748b;
+            outline-offset: 6px;
         }
 
         .metric-grid {
@@ -3294,9 +3339,14 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                         </div>
                     </div>
 
-                    <div class="main-grid">
+                    <div class="personalization-bar" data-personalization-bar>
+                        <span>Personalização: mantém pressionado um bloco e arrasta para reorganizar esta dashboard.</span>
+                        <button type="button" data-reset-dashboard-layout>Repor ordem</button>
+                    </div>
+
+                    <div class="main-grid dashboard-sortable" data-dashboard-sortable data-sortable-profile="<?= e($selectedPage) ?>">
                         <?php if ($selectedPage === 'pessoal'): ?>
-                            <section class="panel">
+                            <section class="panel" data-sortable-panel data-panel-id="pessoal-info" draggable="true">
                                 <h2 class="panel-title">
                                     <?= panelIconSvg('chart') ?>
                                     Informa&ccedil;&atilde;o Pessoal
@@ -3312,7 +3362,7 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                                 </div>
                             </section>
 
-                            <section class="panel">
+                            <section class="panel" data-sortable-panel data-panel-id="pessoal-despachos" draggable="true">
                                 <h2 class="panel-title">
                                     <?= panelIconSvg('document') ?>
                                     Despachos da Presid&ecirc;ncia
@@ -3325,7 +3375,7 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                                 </div>
                             </section>
 
-                            <section class="panel">
+                            <section class="panel" data-sortable-panel data-panel-id="pessoal-gestao-pedidos" draggable="true">
                                 <h2 class="panel-title">
                                     <?= panelIconSvg('chart') ?>
                                     Gest&atilde;o de Pedidos
@@ -3346,7 +3396,7 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                                 </div>
                             </section>
                         <?php elseif ($selectedPage === 'gestao_documental'): ?>
-                            <section class="panel">
+                            <section class="panel" data-sortable-panel data-panel-id="gestao-documental-tarefas" draggable="true">
                                 <h2 class="panel-title">
                                     <?= panelIconSvg('document') ?>
                                     Tarefas
@@ -3376,7 +3426,7 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                                 </div>
                             </section>
                         <?php elseif ($selectedPage === 'gac'): ?>
-                            <section class="panel">
+                            <section class="panel" data-sortable-panel data-panel-id="gac-pedidos-substituicao" draggable="true">
                                 <h2 class="panel-title">
                                     <?= panelIconSvg('document') ?>
                                     Pedidos de Substitui&ccedil;&atilde;o
@@ -3405,7 +3455,7 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                         <?php if ($configuredOverviewPanels !== []): ?>
                             <?php foreach ($configuredOverviewPanels as $overviewPanel): ?>
                                 <?php $items = is_array($overviewPanel['items'] ?? null) ? $overviewPanel['items'] : []; ?>
-                                <section class="panel">
+                                <section class="panel" data-sortable-panel data-panel-id="<?= e((string) ($overviewPanel['id'] ?? $overviewPanel['title'] ?? 'overview')) ?>" draggable="true">
                                     <h2 class="panel-title">
                                         <?= panelIconSvg((string) ($overviewPanel['icon'] ?? 'chart')) ?>
                                         <?= e((string) ($overviewPanel['title'] ?? '')) ?>
@@ -3465,7 +3515,7 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                                 </section>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <section class="panel">
+                            <section class="panel" data-sortable-panel data-panel-id="aulas" draggable="true">
                                 <h2 class="panel-title">
                                     <?= panelIconSvg('chart') ?>
                                     <?= e($aulasTitle) ?>
@@ -3489,7 +3539,7 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                                 <?php endif; ?>
                             </section>
 
-                            <section class="panel">
+                            <section class="panel" data-sortable-panel data-panel-id="sumarios" draggable="true">
                                 <h2 class="panel-title">
                                     <?= panelIconSvg('document') ?>
                                     <?= e($sumariosTitle) ?>
@@ -3511,7 +3561,7 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                         <?php endif; ?>
 
                         <?php if ($summaryPanels !== []): ?>
-                            <div class="mini-grid">
+                            <div class="mini-grid" data-sortable-panel data-panel-id="resumo-estados" draggable="true">
                                 <?php foreach ($summaryPanels as $panel): ?>
                                     <?php if ($panel['items'] === []) { continue; } ?>
                                     <section class="panel panel-compact">
@@ -3534,7 +3584,7 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                         <?php endif; ?>
 
                         <?php if ($entrySections !== []): ?>
-                            <div class="mini-grid<?= count($entrySections) === 1 ? ' mini-grid-single' : '' ?>">
+                            <div class="mini-grid<?= count($entrySections) === 1 ? ' mini-grid-single' : '' ?>" data-sortable-panel data-panel-id="estados-detalhe" draggable="true">
                                 <?php foreach ($entrySections as $section): ?>
                                     <section class="panel">
                                         <h2 class="panel-title">
@@ -3563,7 +3613,7 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                         <?php endif; ?>
 
                         <?php if ($replacementCards !== []): ?>
-                            <section class="panel">
+                            <section class="panel" data-sortable-panel data-panel-id="pedidos-substituicao" draggable="true">
                                 <h2 class="panel-title">
                                     <?= panelIconSvg('document') ?>
                                     <?= e($replacementTitle) ?> <small>(<?= count($replacementCards) ?>)</small>
@@ -3582,7 +3632,7 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                         <?php endif; ?>
 
                         <?php if (($selectedPage === 'presidencia' || $selectedPage === 'dir_uo') && $ucsSemDocenteTitle !== ''): ?>
-                            <section class="panel">
+                            <section class="panel" data-sortable-panel data-panel-id="ucs-sem-docente" draggable="true">
                                 <h2 class="panel-title">
                                     <?= panelIconSvg('document') ?>
                                     <?= e($ucsSemDocenteTitle) ?> <small<?= $ucsSemDocenteTitleStyle !== '' ? ' style="' . e($ucsSemDocenteTitleStyle) . 'padding:4px 8px;border-radius:999px;margin-left:6px;display:inline-block;"' : '' ?>>(<?= number_format($totalUcsSemDocente, 0, ',', '.') ?>)</small>
@@ -3609,7 +3659,7 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                         <?php endif; ?>
 
                         <?php if ($selectedPage === 'dir_uo' && $dirUoStageItems !== []): ?>
-                            <section class="panel">
+                            <section class="panel" data-sortable-panel data-panel-id="estagios-direcao" draggable="true">
                                 <h2 class="panel-title">
                                     <?= panelIconSvg('chart') ?>
                                     <?= e($stageTitle) ?>
@@ -3627,7 +3677,7 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                         <?php endif; ?>
 
                         <?php if ($selectedPage === 'cc' || $selectedPage === 'docente'): ?>
-                            <section class="panel">
+                            <section class="panel" data-sortable-panel data-panel-id="estagios" draggable="true">
                                 <h2 class="panel-title">
                                     <?= panelIconSvg('chart') ?>
                                     <?= e($stageTitle) ?>
@@ -3647,8 +3697,8 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                         <?php endif; ?>
 
                         <?php if ($autoMetricPanels !== []): ?>
-                            <?php foreach ($autoMetricPanels as $metricPanel): ?>
-                                <section class="panel">
+                            <?php foreach ($autoMetricPanels as $metricIndex => $metricPanel): ?>
+                                <section class="panel" data-sortable-panel data-panel-id="auto-metric-<?= e((string) $metricIndex) ?>" draggable="true">
                                     <h2 class="panel-title">
                                         <?= panelIconSvg('chart') ?>
                                         <?= e((string) $metricPanel['title']) ?>
@@ -3667,8 +3717,8 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                         <?php endif; ?>
 
                         <?php if ($autoDetailPanels !== []): ?>
-                            <?php foreach ($autoDetailPanels as $detailPanel): ?>
-                                <section class="panel">
+                            <?php foreach ($autoDetailPanels as $detailIndex => $detailPanel): ?>
+                                <section class="panel" data-sortable-panel data-panel-id="auto-detail-<?= e((string) $detailIndex) ?>" draggable="true">
                                     <h2 class="panel-title">
                                         <?= panelIconSvg('document') ?>
                                         <?= e((string) $detailPanel['title']) ?>
@@ -3766,6 +3816,175 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                     closeAllDropdowns();
                 }
             });
+
+            const sortableGrid = document.querySelector('[data-dashboard-sortable]');
+            if (sortableGrid) {
+                const sortableProfile = sortableGrid.dataset.sortableProfile || 'dashboard';
+                const storageKey = 'onipvc.' + sortableProfile + '.layout.v1';
+                let draggedPanel = null;
+                let autoScrollFrame = null;
+                let autoScrollDirection = 0;
+                const autoScrollSpeed = 6;
+
+                function sortablePanels() {
+                    return Array.from(sortableGrid.querySelectorAll('[data-sortable-panel]'));
+                }
+
+                function scrollContainer() {
+                    return document.querySelector('.content-panel') || document.scrollingElement || document.documentElement;
+                }
+
+                function stopAutoScroll() {
+                    autoScrollDirection = 0;
+                    if (autoScrollFrame !== null) {
+                        window.cancelAnimationFrame(autoScrollFrame);
+                        autoScrollFrame = null;
+                    }
+                }
+
+                function runAutoScroll() {
+                    if (autoScrollDirection === 0 || !draggedPanel) {
+                        stopAutoScroll();
+                        return;
+                    }
+
+                    const container = scrollContainer();
+                    container.scrollTop += autoScrollDirection * autoScrollSpeed;
+                    autoScrollFrame = window.requestAnimationFrame(runAutoScroll);
+                }
+
+                function updateAutoScroll(pointerY) {
+                    const container = scrollContainer();
+                    const bounds = container.getBoundingClientRect ? container.getBoundingClientRect() : {
+                        top: 0,
+                        bottom: window.innerHeight
+                    };
+                    const edgeSize = 120;
+                    let direction = 0;
+
+                    if (pointerY < bounds.top + edgeSize) {
+                        direction = -1;
+                    } else if (pointerY > bounds.bottom - edgeSize) {
+                        direction = 1;
+                    }
+
+                    if (direction === autoScrollDirection) {
+                        return;
+                    }
+
+                    stopAutoScroll();
+                    autoScrollDirection = direction;
+                    if (autoScrollDirection !== 0) {
+                        autoScrollFrame = window.requestAnimationFrame(runAutoScroll);
+                    }
+                }
+
+                function savePanelOrder() {
+                    const order = sortablePanels()
+                        .map(function (panel) { return panel.dataset.panelId || ''; })
+                        .filter(Boolean);
+                    window.localStorage.setItem(storageKey, JSON.stringify(order));
+                }
+
+                function applySavedPanelOrder() {
+                    let order = [];
+                    try {
+                        order = JSON.parse(window.localStorage.getItem(storageKey) || '[]');
+                    } catch (error) {
+                        order = [];
+                    }
+
+                    if (!Array.isArray(order) || order.length === 0) {
+                        return;
+                    }
+
+                    const panelsById = new Map(sortablePanels().map(function (panel) {
+                        return [panel.dataset.panelId, panel];
+                    }));
+
+                    order.forEach(function (panelId) {
+                        const panel = panelsById.get(panelId);
+                        if (panel) {
+                            sortableGrid.appendChild(panel);
+                        }
+                    });
+                }
+
+                function panelAfterPointer(yPosition) {
+                    const candidates = sortablePanels().filter(function (panel) {
+                        return panel !== draggedPanel;
+                    });
+
+                    return candidates.reduce(function (closest, panel) {
+                        const box = panel.getBoundingClientRect();
+                        const offset = yPosition - box.top - (box.height / 2);
+
+                        if (offset < 0 && offset > closest.offset) {
+                            return { offset: offset, element: panel };
+                        }
+
+                        return closest;
+                    }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
+                }
+
+                applySavedPanelOrder();
+
+                sortablePanels().forEach(function (panel) {
+                    panel.addEventListener('dragstart', function (event) {
+                        draggedPanel = panel;
+                        panel.classList.add('is-dragging');
+                        event.dataTransfer.effectAllowed = 'move';
+                        event.dataTransfer.setData('text/plain', panel.dataset.panelId || '');
+                    });
+
+                    panel.addEventListener('dragend', function () {
+                        panel.classList.remove('is-dragging');
+                        sortablePanels().forEach(function (item) {
+                            item.classList.remove('is-drag-over');
+                        });
+                        draggedPanel = null;
+                        stopAutoScroll();
+                        savePanelOrder();
+                    });
+                });
+
+                sortableGrid.addEventListener('dragover', function (event) {
+                    if (!draggedPanel) {
+                        return;
+                    }
+
+                    event.preventDefault();
+                    updateAutoScroll(event.clientY);
+                    const afterPanel = panelAfterPointer(event.clientY);
+                    sortablePanels().forEach(function (panel) {
+                        panel.classList.toggle('is-drag-over', panel === afterPanel);
+                    });
+
+                    if (afterPanel) {
+                        sortableGrid.insertBefore(draggedPanel, afterPanel);
+                    } else {
+                        sortableGrid.appendChild(draggedPanel);
+                    }
+                });
+
+                document.addEventListener('dragover', function (event) {
+                    if (!draggedPanel) {
+                        return;
+                    }
+
+                    updateAutoScroll(event.clientY);
+                });
+
+                document.addEventListener('drop', stopAutoScroll);
+
+                const resetButton = document.querySelector('[data-reset-dashboard-layout]');
+                if (resetButton) {
+                    resetButton.addEventListener('click', function () {
+                        window.localStorage.removeItem(storageKey);
+                        window.location.reload();
+                    });
+                }
+            }
         });
     </script>
 </body>
