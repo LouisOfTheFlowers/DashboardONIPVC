@@ -2,13 +2,14 @@
     "_meta": {
         "schema_version": 1,
         "dashboard": "coord_curso",
-        "data_file": "alertsCC.json",
-        "visual_mode": "neutral"
+        "data_file": "alertsCC.json"
     },
     "card_colors": {
         "success": "#22c55e",
         "warning": "#eab308",
-        "critical": "#ef4444"
+        "critical": "#ef4444",
+        "danger": "#dc2626",
+        "info": "#2563eb"
     },
     "card_panels": [
         {
@@ -28,6 +29,7 @@
                     "value": 1,
                     "source_label": "Por lecionar",
                     "label": "Por Lecionar",
+                    "color": "warning",
                     "ranges": [
                         {
                             "min": 0,
@@ -68,6 +70,7 @@
                     "value": 3,
                     "source_label": "Não lecionada",
                     "label": "Não Lecionadas",
+                    "color": "critical",
                     "empty_display": "dash",
                     "ranges": [
                         {
@@ -109,6 +112,7 @@
                     "value": 7,
                     "source_label": "Não Justificada",
                     "label": "Não Justificadas",
+                    "color": "danger",
                     "empty_display": "dash",
                     "ranges": [
                         {
@@ -164,6 +168,7 @@
                     "value": 2,
                     "source_label": "Elaborado",
                     "label": "Elaborados",
+                    "color": "success",
                     "ranges": [
                         {
                             "min": 0,
@@ -204,6 +209,7 @@
                     "value": 1,
                     "source_label": "Não Elaborado",
                     "label": "Não Elaborados",
+                    "color": "critical",
                     "empty_display": "dash",
                     "ranges": [
                         {
@@ -243,63 +249,98 @@
             ]
         }
     ],
+    "num_aulas": [
+        {
+            "min": 0,
+            "max": 4,
+            "color": "#22c55e",
+            "label": "OK"
+        },
+        {
+            "min": 5,
+            "max": 7,
+            "color": "#eab308",
+            "label": "Atenção"
+        },
+        {
+            "min": 8,
+            "max": 9999,
+            "color": "#ef4444",
+            "label": "Crítico"
+        }
+    ],
     "num_ucs": [
         {
             "min": 0,
-            "max": 5,
-            "color": "success"
+            "max": 6,
+            "color": "#22c55e",
+            "label": "OK"
         },
         {
             "min": 6,
             "max": 15,
-            "color": "warning"
+            "color": "#eab308",
+            "label": "Atenção"
         },
         {
             "min": 16,
             "max": 9999,
-            "color": "critical"
+            "color": "#ef4444",
+            "label": "Crítico"
         }
     ],
     "qnt_estagios_nao_terminados": [
         {
             "min": 0,
             "max": 2,
-            "color": "success"
+            "color": "#22c55e",
+            "label": "OK"
         },
         {
             "min": 3,
             "max": 6,
-            "color": "warning"
+            "color": "#eab308",
+            "label": "Atenção"
         },
         {
             "min": 7,
             "max": 9999,
-            "color": "critical"
+            "color": "#ef4444",
+            "label": "Crítico"
         }
     ],
     "estado": {
         "Proposta": {
+            "color": "#eab308",
             "label": "Pendente"
         },
         "Em edição": {
+            "color": "#f97316",
             "label": "Em progresso"
         },
         "Aprovado CC": {
+            "color": "#22c55e",
             "label": "Aprovado"
         },
         "Não editado/Novo": {
+            "color": "#ef4444",
             "label": "Por iniciar"
         }
     },
     "descricao": {
-        "Não lecionada": {},
-        "Por lecionar": {},
-        "Não Justificada": {
-            "label": "Grave"
+        "Não lecionada": {
+            "color": "#ef4444"
+        },
+        "Por lecionar": {
+            "color": "#eab308"
         }
     },
     "descricao_estado": {
-        "Elaborado": {},
-        "Não Elaborado": {}
+        "Elaborado": {
+            "color": "#22c55e"
+        },
+        "Não Elaborado": {
+            "color": "#ef4444"
+        }
     }
 }

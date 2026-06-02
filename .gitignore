@@ -27,6 +27,9 @@ vendor/
 composer.phar
 .phpunit.result.cache
 
+# Node / local runtime
+node_modules/
+
 # Environment
 .env
 .env.*
