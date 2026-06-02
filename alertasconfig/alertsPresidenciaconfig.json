@@ -240,14 +240,31 @@
             ]
         }
     ],
-    "num_ucs": [
+    "estados_pucs": [
         {
             "min": 0,
-            "max": 50,
+            "max": 120,
             "color": "success"
         },
         {
-            "min": 51,
+            "min": 121,
+            "max": 300,
+            "color": "warning"
+        },
+        {
+            "min": 301,
+            "max": 999999,
+            "color": "critical"
+        }
+    ],
+    "estados_rucs": [
+        {
+            "min": 0,
+            "max": 30,
+            "color": "success"
+        },
+        {
+            "min": 31,
             "max": 300,
             "color": "warning"
         },
@@ -275,14 +292,14 @@
         }
     },
     "descricao": {
-        "Não lecionada": {},
-        "Por lecionar": {},
+        "Não lecionada": [],
+        "Por lecionar": [],
         "Não Justificada": {
             "label": "Grave"
         }
     },
     "descricao_estado": {
-        "Elaborado": {},
-        "Não Elaborado": {}
+        "Elaborado": [],
+        "Não Elaborado": []
     }
 }

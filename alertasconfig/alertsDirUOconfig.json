@@ -241,23 +241,6 @@
             ]
         }
     ],
-    "num_ucs": [
-        {
-            "min": 0,
-            "max": 20,
-            "color": "success"
-        },
-        {
-            "min": 21,
-            "max": 100,
-            "color": "warning"
-        },
-        {
-            "min": 101,
-            "max": 99999,
-            "color": "critical"
-        }
-    ],
     "qnt_estagios_nao_terminados": [
         {
             "min": 0,
@@ -327,14 +310,48 @@
         }
     },
     "descricao": {
-        "Não lecionada": {},
-        "Por lecionar": {},
+        "Não lecionada": [],
+        "Por lecionar": [],
         "Não Justificada": {
             "label": "Grave"
         }
     },
     "descricao_estado": {
-        "Elaborado": {},
-        "Não Elaborado": {}
-    }
+        "Elaborado": [],
+        "Não Elaborado": []
+    },
+    "estados_pucs": [
+        {
+            "min": 0,
+            "max": 20,
+            "color": "success"
+        },
+        {
+            "min": 21,
+            "max": 100,
+            "color": "warning"
+        },
+        {
+            "min": 101,
+            "max": 99999,
+            "color": "critical"
+        }
+    ],
+    "estados_rucs": [
+        {
+            "min": 0,
+            "max": 20,
+            "color": "success"
+        },
+        {
+            "min": 21,
+            "max": 100,
+            "color": "warning"
+        },
+        {
+            "min": 101,
+            "max": 99999,
+            "color": "critical"
+        }
+    ]
 }

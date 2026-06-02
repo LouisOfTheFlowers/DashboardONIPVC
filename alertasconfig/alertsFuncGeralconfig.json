@@ -158,12 +158,12 @@
         },
         {
             "min_days": 0,
-            "max_days": 30,
+            "max_days": 60,
             "color": "warning",
             "label": "Expira em breve"
         },
         {
-            "min_days": 31,
+            "min_days": 61,
             "max_days": 99999,
             "color": "success",
             "label": "Valido"

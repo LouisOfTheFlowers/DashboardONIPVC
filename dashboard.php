@@ -727,9 +727,17 @@ function buildAutomaticSummaryPanels(
 
         $semesterField = selectFirstExistingField($rows, ['semestre']);
         $filteredRows = $semesterField !== '' ? filterRows($rows, $selectedSemester, '', $semesterField, '') : $rows;
+        $rangeGroup = $countField;
+        $normalizedGroupKey = normalizeState($groupKey);
+        if (str_contains($normalizedGroupKey, 'puc')) {
+            $rangeGroup = 'estados_pucs';
+        } elseif (str_contains($normalizedGroupKey, 'ruc')) {
+            $rangeGroup = 'estados_rucs';
+        }
+
         $panels[] = [
             'title' => (string) ($group['ds'] ?? $groupKey),
-            'items' => buildStateSummaryCards($filteredRows, $stateConfig, $stateField, $countField, $config, $countField),
+            'items' => buildStateSummaryCards($filteredRows, $stateConfig, $stateField, $countField, $config, $rangeGroup),
         ];
         appendSkippedGroup($skipLookup, $groupKey);
     }
@@ -1088,11 +1096,35 @@ function formatDateValue(string $value): string
         return '';
     }
 
-    try {
-        $date = new DateTimeImmutable($value);
+    $date = parseDateValue($value);
+    if ($date instanceof DateTimeImmutable) {
         return $date->format('d/m/Y');
+    }
+
+    return $value;
+}
+
+function parseDateValue(string $value): ?DateTimeImmutable
+{
+    $value = trim($value);
+    if ($value === '') {
+        return null;
+    }
+
+    $formats = ['!d/m/Y', '!d-m-Y', '!Y-m-d', '!Y/m/d'];
+    foreach ($formats as $format) {
+        $date = DateTimeImmutable::createFromFormat($format, $value);
+        $errors = DateTimeImmutable::getLastErrors();
+        $hasErrors = is_array($errors) && ($errors['warning_count'] > 0 || $errors['error_count'] > 0);
+        if ($date instanceof DateTimeImmutable && !$hasErrors) {
+            return $date;
+        }
+    }
+
+    try {
+        return new DateTimeImmutable($value);
     } catch (Exception) {
-        return $value;
+        return null;
     }
 }
 
@@ -1131,21 +1163,21 @@ function buildValidityInfo(string $rawDate, array $config = []): array
         return ['date' => '-', 'status' => 'Sem data', 'color' => $color];
     }
 
-    try {
-        $date = new DateTimeImmutable($rawDate);
-        $today = new DateTimeImmutable('today');
-        $daysRemaining = (int) $today->diff($date)->format('%r%a');
-        $rule = resolveValidityRule($config, $daysRemaining);
-        $color = resolveColor($config, (string) ($rule['color'] ?? ''), 'card_colors');
-        return [
-            'date' => $dateLabel,
-            'status' => (string) ($rule['label'] ?? ''),
-            'color' => $color,
-        ];
-    } catch (Exception) {
+    $date = parseDateValue($rawDate);
+    if (!$date instanceof DateTimeImmutable) {
         $color = resolveColor($config, 'warning', 'card_colors');
         return ['date' => $dateLabel, 'status' => 'Sem validacao', 'color' => $color];
     }
+
+    $today = new DateTimeImmutable('today');
+    $daysRemaining = (int) $today->diff($date)->format('%r%a');
+    $rule = resolveValidityRule($config, $daysRemaining);
+    $color = resolveColor($config, (string) ($rule['color'] ?? ''), 'card_colors');
+    return [
+        'date' => $dateLabel,
+        'status' => (string) ($rule['label'] ?? ''),
+        'color' => $color,
+    ];
 }
 
 function formatAcademicYear(string $value): string
@@ -1695,13 +1727,13 @@ if ($selectedPage === 'presidencia') {
     if ($pucRows !== []) {
         $summaryPanels[] = [
             'title' => groupLabel($grupos, ['resumo_estados_puc_pres', 'resumo_estados_puc'], 'Resumo Estados PUCs'),
-            'items' => buildStateSummaryCards($pucRows, $estadoConfig, 'estado', 'num_ucs', $alertsConfig, 'num_ucs'),
+            'items' => buildStateSummaryCards($pucRows, $estadoConfig, 'estado', 'num_ucs', $alertsConfig, 'estados_pucs'),
         ];
     }
     if ($rucRows !== []) {
         $summaryPanels[] = [
             'title' => groupLabel($grupos, ['resumo_estados_ruc_pres', 'resumo_estados_ruc'], 'Resumo Estados RUCs'),
-            'items' => buildStateSummaryCards($rucRows, $estadoConfig, 'estado', 'num_ucs', $alertsConfig, 'num_ucs'),
+            'items' => buildStateSummaryCards($rucRows, $estadoConfig, 'estado', 'num_ucs', $alertsConfig, 'estados_rucs'),
         ];
     }
 
@@ -1749,11 +1781,11 @@ if ($selectedPage === 'presidencia') {
 
     $summaryPanels[] = [
         'title' => groupLabel($grupos, ['resumo_estados_puc_cc', 'resumo_estados_puc'], 'Resumo Estados PUCs'),
-        'items' => buildStateSummaryCards(groupDataRows($grupos, ['resumo_estados_puc_cc', 'resumo_estados_puc'], $selectedSemester), $estadoConfig, 'estado', 'num_ucs', $alertsConfig, 'num_ucs'),
+        'items' => buildStateSummaryCards(groupDataRows($grupos, ['resumo_estados_puc_cc', 'resumo_estados_puc'], $selectedSemester), $estadoConfig, 'estado', 'num_ucs', $alertsConfig, 'estados_pucs'),
     ];
     $summaryPanels[] = [
         'title' => groupLabel($grupos, ['resumo_estados_ruc_cc', 'resumo_estados_ruc'], 'Resumo Estados RUCs'),
-        'items' => buildStateSummaryCards(groupDataRows($grupos, ['resumo_estados_ruc_cc', 'resumo_estados_ruc'], $selectedSemester), $estadoConfig, 'estado', 'num_ucs', $alertsConfig, 'num_ucs'),
+        'items' => buildStateSummaryCards(groupDataRows($grupos, ['resumo_estados_ruc_cc', 'resumo_estados_ruc'], $selectedSemester), $estadoConfig, 'estado', 'num_ucs', $alertsConfig, 'estados_rucs'),
     ];
 
     $ccPucEntries = buildEntryCards(groupDataRows($grupos, ['estado_pucs_cc'], $selectedSemester), $estadoConfig);

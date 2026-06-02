@@ -102,10 +102,12 @@
       if (isRangeArray(value)) {
         sections.push({
           id: key,
-          title: humanize(key),
-          subtitle: 'Intervalo global',
+          title: rangeTitle(key),
+          subtitle: key === 'datas_validade' ? 'Intervalo por dias até expirar' : 'Intervalo global',
           ranges: value,
-          path: [key]
+          path: [key],
+          minField: rangeMinField(value),
+          maxField: rangeMaxField(value)
         });
       }
     });
@@ -121,7 +123,9 @@
             title: item.label || item.key || humanize(rangeKey),
             subtitle: `${panel.title || panel.group || 'Painel'} · ${rangeKey === 'table_ranges' ? 'Tabela' : 'Cartão'}`,
             ranges,
-            path: ['card_panels', panelIndex, 'items', itemIndex, rangeKey]
+            path: ['card_panels', panelIndex, 'items', itemIndex, rangeKey],
+            minField: rangeMinField(ranges),
+            maxField: rangeMaxField(ranges)
           });
         });
       });
@@ -132,8 +136,16 @@
 
   function isRangeArray(value) {
     return Array.isArray(value) && value.every((item) => {
-      return item && typeof item === 'object' && ('min' in item || 'max' in item || 'color' in item);
+      return item && typeof item === 'object' && ('min' in item || 'max' in item || 'min_days' in item || 'max_days' in item || 'color' in item);
     });
+  }
+
+  function rangeMinField(ranges) {
+    return ranges?.some((range) => 'min_days' in range || 'max_days' in range) ? 'min_days' : 'min';
+  }
+
+  function rangeMaxField(ranges) {
+    return ranges?.some((range) => 'min_days' in range || 'max_days' in range) ? 'max_days' : 'max';
   }
 
   function humanize(value) {
@@ -142,29 +154,134 @@
       .replace(/\b\w/g, (letter) => letter.toUpperCase());
   }
 
+  function rangeTitle(key) {
+    const labels = {
+      estados_pucs: 'Estados PUCs',
+      estados_rucs: 'Estados RUCs',
+      qnt_por_ler: 'Despachos por Ler',
+      qnt_msg_por_ler: 'Mensagens por Ler',
+      qnt_tarefas: 'Tarefas Pendentes',
+      qnt_pedidos: 'Pedidos'
+    };
+
+    return labels[key] || humanize(key);
+  }
+
   function updateRange(path, index, field, value) {
     config = updateAtPath(config, path, (ranges) => {
-      return ranges.map((range, rangeIndex) => {
-        if (rangeIndex !== index) return range;
+      const updatedRanges = ranges.map((range) => ({ ...range }));
 
-        return {
-          ...range,
-          [field]: field === 'color' || field === 'label' ? value : Number(value)
-        };
-      });
+      if (!updatedRanges[index]) {
+        return updatedRanges;
+      }
+
+      if (field === 'color' || field === 'label') {
+        updatedRanges[index][field] = value;
+        return updatedRanges;
+      }
+
+      if (String(value).trim() === '') {
+        updatedRanges[index][field] = '';
+        return updatedRanges;
+      }
+
+      const numericValue = Number(value);
+      if (!Number.isFinite(numericValue)) {
+        return updatedRanges;
+      }
+
+      updatedRanges[index][field] = numericValue;
+
+      const minField = field === 'min_days' || field === 'max_days' ? 'min_days' : 'min';
+      const maxField = field === 'min_days' || field === 'max_days' ? 'max_days' : 'max';
+
+      if (field === maxField && updatedRanges[index + 1]) {
+        updatedRanges[index + 1][minField] = numericValue + 1;
+      }
+
+      if (field === minField && updatedRanges[index - 1]) {
+        updatedRanges[index - 1][maxField] = numericValue - 1;
+      }
+
+      if (Number(updatedRanges[index][minField]) > Number(updatedRanges[index][maxField])) {
+        if (field === minField) {
+          updatedRanges[index][maxField] = numericValue;
+        } else {
+          updatedRanges[index][maxField] = Number(updatedRanges[index][minField]);
+        }
+      }
+
+      return updatedRanges;
+    });
+  }
+
+  function handleRangeNumberInput(path, index, field, event, range) {
+    updateRange(path, index, field, event.currentTarget.value);
+
+    const value = Number(event.currentTarget.value);
+    if (!Number.isFinite(value)) {
+      return;
+    }
+
+    const minField = field === 'min_days' || field === 'max_days' ? 'min_days' : 'min';
+    const maxField = field === 'min_days' || field === 'max_days' ? 'max_days' : 'max';
+
+    if (field === maxField) {
+      const minValue = Number(range[minField]);
+      if (Number.isFinite(minValue) && value < minValue) {
+        event.currentTarget.value = String(minValue);
+      }
+    }
+
+    if (field === minField) {
+      const maxValue = Number(range[maxField]);
+      if (Number.isFinite(maxValue) && value > maxValue) {
+        event.currentTarget.value = String(maxValue);
+      }
+    }
+  }
+
+  function normalizeEmptyRangeValue(path, index, field) {
+    config = updateAtPath(config, path, (ranges) => {
+      const updatedRanges = ranges.map((range) => ({ ...range }));
+      const current = updatedRanges[index];
+
+      if (!current || current[field] !== '') {
+        return updatedRanges;
+      }
+
+      const minField = field === 'min_days' || field === 'max_days' ? 'min_days' : 'min';
+      const maxField = field === 'min_days' || field === 'max_days' ? 'max_days' : 'max';
+
+      if (field === minField) {
+        const previousMax = Number(updatedRanges[index - 1]?.[maxField]);
+        current[minField] = Number.isFinite(previousMax) ? previousMax + 1 : 0;
+      }
+
+      if (field === maxField) {
+        const nextMin = Number(updatedRanges[index + 1]?.[minField]);
+        const currentMin = Number(current[minField]);
+        current[maxField] = Number.isFinite(nextMin)
+          ? nextMin - 1
+          : (Number.isFinite(currentMin) ? currentMin : 0);
+      }
+
+      return updatedRanges;
     });
   }
 
   function addRange(path) {
     config = updateAtPath(config, path, (ranges) => {
       const last = ranges.at(-1);
-      const nextMin = Number.isFinite(Number(last?.max)) ? Number(last.max) + 1 : 0;
+      const minField = rangeMinField(ranges);
+      const maxField = rangeMaxField(ranges);
+      const nextMin = Number.isFinite(Number(last?.[maxField])) ? Number(last[maxField]) + 1 : 0;
 
       return [
         ...ranges,
         {
-          min: nextMin,
-          max: nextMin + 10,
+          [minField]: nextMin,
+          [maxField]: nextMin + 10,
           color: Object.keys(palette)[0] || '#2563eb'
         }
       ];
@@ -274,8 +391,8 @@
 
             <div class="range-table">
               <div class="range-row heading">
-                <span>Mín.</span>
-                <span>Máx.</span>
+                <span>{section.minField === 'min_days' ? 'Dias mín.' : 'Mín.'}</span>
+                <span>{section.maxField === 'max_days' ? 'Dias máx.' : 'Máx.'}</span>
                 <span>Cor</span>
                 <span>Legenda</span>
                 <span></span>
@@ -283,8 +400,20 @@
 
               {#each section.ranges as range, index}
                 <div class="range-row">
-                  <input type="number" value={range.min ?? 0} oninput={(event) => updateRange(section.path, index, 'min', event.currentTarget.value)} />
-                  <input type="number" value={range.max ?? 0} oninput={(event) => updateRange(section.path, index, 'max', event.currentTarget.value)} />
+                  <input
+                    type="number"
+                    value={range[section.minField] ?? 0}
+                    max={range[section.maxField] ?? undefined}
+                    oninput={(event) => handleRangeNumberInput(section.path, index, section.minField, event, range)}
+                    onblur={() => normalizeEmptyRangeValue(section.path, index, section.minField)}
+                  />
+                  <input
+                    type="number"
+                    value={range[section.maxField] ?? 0}
+                    min={range[section.minField] ?? 0}
+                    oninput={(event) => handleRangeNumberInput(section.path, index, section.maxField, event, range)}
+                    onblur={() => normalizeEmptyRangeValue(section.path, index, section.maxField)}
+                  />
                   <div class="color-cell">
                     <span class="swatch" style:background={palette[range.color] || range.color || '#64748b'}></span>
                     <input value={range.color ?? ''} oninput={(event) => updateRange(section.path, index, 'color', event.currentTarget.value)} />
