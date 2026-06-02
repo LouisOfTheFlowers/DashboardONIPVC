@@ -1,194 +1,340 @@
 {
-  "_meta": {
-    "schema_version": 1,
-    "dashboard": "direcao",
-    "data_file": "alertsDirUO.json"
-  },
-
-  "card_colors": {
-    "success": "#22c55e",
-    "warning": "#eab308",
-    "critical": "#ef4444",
-    "danger": "#dc2626",
-    "info": "#2563eb"
-  },
-
-  "school_colors": {
-    "ESA": { "color": "#16a34a", "label": "Escola Superior Agrária" },
-    "ESCE": { "color": "#0891b2", "label": "Escola Superior de Ciências Empresariais" },
-    "ESDL": { "color": "#dc2626", "label": "Escola Superior de Desporto e Lazer" },
-    "ESE": { "color": "#7c3aed", "label": "Escola Superior de Educação" },
-    "ESS": { "color": "#db2777", "label": "Escola Superior de Saúde" },
-    "ESTG": { "color": "#2563eb", "label": "Escola Superior de Tecnologia e Gestão" }
-  },
-
-  "card_panels": [
-    {
-      "group": "aulas_por_lecionar_dir",
-      "title": "Aulas por Lecionar",
-      "icon": "book",
-      "count_field": "num_aulas",
-      "state_field": "id_estado",
-      "label_field": "descricao",
-      "semester_field": "semestre",
-      "uo_field": "uo",
-      "config_group": "descricao",
-      "items": [
-        {
-          "key": "por_lecionar",
-          "value": 1,
-          "source_label": "Por lecionar",
-          "label": "Por Lecionar",
-          "color": "warning",
-          "ranges": [
-            { "min": 0, "max": 50, "color": "success" },
-            { "min": 51, "max": 200, "color": "warning" },
-            { "min": 201, "max": 99999, "color": "critical" }
-          ],
-          "table_ranges": [
-            { "min": 0, "max": 50, "color": "success" },
-            { "min": 51, "max": 200, "color": "warning" },
-            { "min": 201, "max": 99999, "color": "critical" }
-          ]
-        },
-        {
-          "key": "nao_lecionadas",
-          "value": 3,
-          "source_label": "Não lecionada",
-          "label": "Não Lecionadas",
-          "color": "critical",
-          "empty_display": "dash",
-          "ranges": [
-            { "min": 0, "max": 50, "color": "success" },
-            { "min": 51, "max": 200, "color": "warning" },
-            { "min": 201, "max": 99999, "color": "critical" }
-          ],
-          "table_ranges": [
-            { "min": 0, "max": 50, "color": "success" },
-            { "min": 51, "max": 200, "color": "warning" },
-            { "min": 201, "max": 99999, "color": "critical" }
-          ]
-        },
-        {
-          "key": "nao_justificadas",
-          "value": 7,
-          "source_label": "Não Justificada",
-          "label": "Não Justificadas",
-          "color": "danger",
-          "empty_display": "dash",
-          "ranges": [
-            { "min": 0, "max": 50, "color": "success" },
-            { "min": 51, "max": 200, "color": "warning" },
-            { "min": 201, "max": 99999, "color": "critical" }
-          ],
-          "table_ranges": [
-            { "min": 0, "max": 50, "color": "success" },
-            { "min": 51, "max": 200, "color": "warning" },
-            { "min": 201, "max": 99999, "color": "critical" }
-          ]
-        }
-      ]
+    "_meta": {
+        "schema_version": 1,
+        "dashboard": "direcao",
+        "data_file": "alertsDirUO.json",
+        "visual_mode": "neutral"
     },
-    {
-      "group": "sumarios_por_publicar_dir",
-      "title": "Sumários por Publicar",
-      "icon": "document",
-      "count_field": "num_aulas",
-      "state_field": "id_estado_sumario",
-      "label_field": "descricao_estado",
-      "semester_field": "semestre",
-      "uo_field": "uo",
-      "config_group": "descricao_estado",
-      "items": [
+    "card_colors": {
+        "success": "#22c55e",
+        "warning": "#eab308",
+        "critical": "#ef4444"
+    },
+    "card_panels": [
         {
-          "key": "elaborados",
-          "value": 2,
-          "source_label": "Elaborado",
-          "label": "Elaborados",
-          "color": "success",
-          "ranges": [
-            { "min": 0, "max": 50, "color": "success" },
-            { "min": 51, "max": 200, "color": "warning" },
-            { "min": 201, "max": 99999, "color": "critical" }
-          ],
-          "table_ranges": [
-            { "min": 0, "max": 50, "color": "success" },
-            { "min": 51, "max": 200, "color": "warning" },
-            { "min": 201, "max": 99999, "color": "critical" }
-          ]
+            "group": "aulas_por_lecionar_dir",
+            "title": "Aulas por Lecionar",
+            "icon": "book",
+            "count_field": "num_aulas",
+            "state_field": "id_estado",
+            "label_field": "descricao",
+            "semester_field": "semestre",
+            "uo_field": "uo",
+            "config_group": "descricao",
+            "items": [
+                {
+                    "key": "por_lecionar",
+                    "value": 1,
+                    "source_label": "Por lecionar",
+                    "label": "Por Lecionar",
+                    "ranges": [
+                        {
+                            "min": 0,
+                            "max": 50,
+                            "color": "success"
+                        },
+                        {
+                            "min": 51,
+                            "max": 200,
+                            "color": "warning"
+                        },
+                        {
+                            "min": 201,
+                            "max": 99999,
+                            "color": "critical"
+                        }
+                    ],
+                    "table_ranges": [
+                        {
+                            "min": 0,
+                            "max": 50,
+                            "color": "success"
+                        },
+                        {
+                            "min": 51,
+                            "max": 200,
+                            "color": "warning"
+                        },
+                        {
+                            "min": 201,
+                            "max": 99999,
+                            "color": "critical"
+                        }
+                    ]
+                },
+                {
+                    "key": "nao_lecionadas",
+                    "value": 3,
+                    "source_label": "Não lecionada",
+                    "label": "Não Lecionadas",
+                    "empty_display": "dash",
+                    "ranges": [
+                        {
+                            "min": 0,
+                            "max": 50,
+                            "color": "success"
+                        },
+                        {
+                            "min": 51,
+                            "max": 200,
+                            "color": "warning"
+                        },
+                        {
+                            "min": 201,
+                            "max": 99999,
+                            "color": "critical"
+                        }
+                    ],
+                    "table_ranges": [
+                        {
+                            "min": 0,
+                            "max": 50,
+                            "color": "success"
+                        },
+                        {
+                            "min": 51,
+                            "max": 200,
+                            "color": "warning"
+                        },
+                        {
+                            "min": 201,
+                            "max": 99999,
+                            "color": "critical"
+                        }
+                    ]
+                },
+                {
+                    "key": "nao_justificadas",
+                    "value": 7,
+                    "source_label": "Não Justificada",
+                    "label": "Não Justificadas",
+                    "empty_display": "dash",
+                    "ranges": [
+                        {
+                            "min": 0,
+                            "max": 50,
+                            "color": "success"
+                        },
+                        {
+                            "min": 51,
+                            "max": 200,
+                            "color": "warning"
+                        },
+                        {
+                            "min": 201,
+                            "max": 99999,
+                            "color": "critical"
+                        }
+                    ],
+                    "table_ranges": [
+                        {
+                            "min": 0,
+                            "max": 50,
+                            "color": "success"
+                        },
+                        {
+                            "min": 51,
+                            "max": 200,
+                            "color": "warning"
+                        },
+                        {
+                            "min": 201,
+                            "max": 99999,
+                            "color": "critical"
+                        }
+                    ]
+                }
+            ]
         },
         {
-          "key": "nao_elaborados",
-          "value": 1,
-          "source_label": "Não Elaborado",
-          "label": "Não Elaborados",
-          "color": "critical",
-          "ranges": [
-            { "min": 0, "max": 50, "color": "success" },
-            { "min": 51, "max": 200, "color": "warning" },
-            { "min": 201, "max": 99999, "color": "critical" }
-          ],
-          "table_ranges": [
-            { "min": 0, "max": 50, "color": "success" },
-            { "min": 51, "max": 200, "color": "warning" },
-            { "min": 201, "max": 99999, "color": "critical" }
-          ]
+            "group": "sumarios_por_publicar_dir",
+            "title": "Sumários por Publicar",
+            "icon": "document",
+            "count_field": "num_aulas",
+            "state_field": "id_estado_sumario",
+            "label_field": "descricao_estado",
+            "semester_field": "semestre",
+            "uo_field": "uo",
+            "config_group": "descricao_estado",
+            "items": [
+                {
+                    "key": "elaborados",
+                    "value": 2,
+                    "source_label": "Elaborado",
+                    "label": "Elaborados",
+                    "ranges": [
+                        {
+                            "min": 0,
+                            "max": 50,
+                            "color": "success"
+                        },
+                        {
+                            "min": 51,
+                            "max": 200,
+                            "color": "warning"
+                        },
+                        {
+                            "min": 201,
+                            "max": 99999,
+                            "color": "critical"
+                        }
+                    ],
+                    "table_ranges": [
+                        {
+                            "min": 0,
+                            "max": 50,
+                            "color": "success"
+                        },
+                        {
+                            "min": 51,
+                            "max": 200,
+                            "color": "warning"
+                        },
+                        {
+                            "min": 201,
+                            "max": 99999,
+                            "color": "critical"
+                        }
+                    ]
+                },
+                {
+                    "key": "nao_elaborados",
+                    "value": 1,
+                    "source_label": "Não Elaborado",
+                    "label": "Não Elaborados",
+                    "empty_display": "dash",
+                    "ranges": [
+                        {
+                            "min": 0,
+                            "max": 50,
+                            "color": "success"
+                        },
+                        {
+                            "min": 51,
+                            "max": 200,
+                            "color": "warning"
+                        },
+                        {
+                            "min": 201,
+                            "max": 99999,
+                            "color": "critical"
+                        }
+                    ],
+                    "table_ranges": [
+                        {
+                            "min": 0,
+                            "max": 50,
+                            "color": "success"
+                        },
+                        {
+                            "min": 51,
+                            "max": 200,
+                            "color": "warning"
+                        },
+                        {
+                            "min": 201,
+                            "max": 99999,
+                            "color": "critical"
+                        }
+                    ]
+                }
+            ]
         }
-      ]
+    ],
+    "num_ucs": [
+        {
+            "min": 0,
+            "max": 20,
+            "color": "success"
+        },
+        {
+            "min": 21,
+            "max": 100,
+            "color": "warning"
+        },
+        {
+            "min": 101,
+            "max": 99999,
+            "color": "critical"
+        }
+    ],
+    "qnt_estagios_nao_terminados": [
+        {
+            "min": 0,
+            "max": 20,
+            "color": "success"
+        },
+        {
+            "min": 21,
+            "max": 80,
+            "color": "warning"
+        },
+        {
+            "min": 81,
+            "max": 99999,
+            "color": "critical"
+        }
+    ],
+    "qnt_estagio_protocolos_empresa_por_validar": [
+        {
+            "min": 0,
+            "max": 2,
+            "color": "success"
+        },
+        {
+            "min": 3,
+            "max": 5,
+            "color": "warning"
+        },
+        {
+            "min": 6,
+            "max": 999,
+            "color": "critical"
+        }
+    ],
+    "qnt_estagio_protocolos_aluno_por_validar": [
+        {
+            "min": 0,
+            "max": 2,
+            "color": "success"
+        },
+        {
+            "min": 3,
+            "max": 5,
+            "color": "warning"
+        },
+        {
+            "min": 6,
+            "max": 999,
+            "color": "critical"
+        }
+    ],
+    "estado": {
+        "Proposta": {
+            "label": "Pendente"
+        },
+        "Em edição": {
+            "label": "Em progresso"
+        },
+        "Aprovado CC": {
+            "label": "Aprovado"
+        },
+        "Não editado/Novo": {
+            "label": "Por iniciar"
+        },
+        "Não aprovado": {
+            "label": "Rejeitado"
+        }
+    },
+    "descricao": {
+        "Não lecionada": {},
+        "Por lecionar": {},
+        "Não Justificada": {
+            "label": "Grave"
+        }
+    },
+    "descricao_estado": {
+        "Elaborado": {},
+        "Não Elaborado": {}
     }
-  ],
-
-  "num_aulas": [
-    { "min": 0, "max": 50, "color": "#22c55e", "label": "OK" },
-    { "min": 51, "max": 200, "color": "#eab308", "label": "Atenção" },
-    { "min": 201, "max": 99999, "color": "#ef4444", "label": "Crítico" }
-  ],
-
-  "num_ucs": [
-    { "min": 0, "max": 20, "color": "#22c55e" },
-    { "min": 21, "max": 100, "color": "#eab308" },
-    { "min": 101, "max": 99999, "color": "#ef4444" }
-  ],
-
-  "qnt_estagios_nao_terminados": [
-    { "min": 0, "max": 20, "color": "#22c55e" },
-    { "min": 21, "max": 80, "color": "#eab308" },
-    { "min": 81, "max": 99999, "color": "#ef4444" }
-  ],
-
-  "qnt_estagio_protocolos_empresa_por_validar": [
-    { "min": 0, "max": 2, "color": "#22c55e" },
-    { "min": 3, "max": 5, "color": "#eab308" },
-    { "min": 6, "max": 999, "color": "#ef4444" }
-  ],
-
-  "qnt_estagio_protocolos_aluno_por_validar": [
-    { "min": 0, "max": 2, "color": "#22c55e" },
-    { "min": 3, "max": 5, "color": "#eab308" },
-    { "min": 6, "max": 999, "color": "#ef4444" }
-  ],
-
-  "estado": {
-    "Proposta": { "color": "#eab308", "label": "Pendente" },
-    "Em edição": { "color": "#f97316", "label": "Em progresso" },
-    "Aprovado CC": { "color": "#22c55e", "label": "Aprovado" },
-    "Não editado/Novo": { "color": "#ef4444", "label": "Por iniciar" },
-    "Não aprovado": { "color": "#ef4444", "label": "Rejeitado" }
-  },
-
-  "descricao": {
-    "Não lecionada": { "color": "#ef4444" },
-    "Por lecionar": { "color": "#eab308" }
-  },
-
-  "descricao_estado": {
-    "Elaborado": { "color": "#22c55e" },
-    "Não Elaborado": { "color": "#ef4444" }
-  },
-
-  "ucs_sem_docente_count": [
-    { "min": 0, "max": 5, "color": "#22c55e" },
-    { "min": 6, "max": 15, "color": "#eab308" },
-    { "min": 16, "max": 9999, "color": "#ef4444" }
-  ]
 }
