@@ -2250,23 +2250,24 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
         .content-body {
             min-width: 0;
             max-width: 100%;
-            padding: 28px 40px 36px;
+            padding: 18px 40px 28px;
         }
 
         .hero {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            gap: 24px;
-            padding: 18px 0 8px;
+            gap: 16px;
+            padding: 8px 0 4px;
         }
 
         .hero-copy h1 {
             display: flex;
-            margin-top: 15px;
+            margin-top: 6px;
             font-size: clamp(1.05rem, 2vw, 1.35rem);
             letter-spacing: -0.05em;
             line-height: 0.95;
+            white-space: nowrap;
         }
 
         .hero-controls {
@@ -2363,16 +2364,16 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
             min-width: 0;
             max-width: 100%;
             display: grid;
-            gap: 22px;
+            gap: 14px;
         }
 
         .personalization-bar {
-            margin: -8px 0 18px;
+            margin: 8px 0 12px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 14px;
-            padding: 10px 14px;
+            padding: 8px 12px;
             border: 1px dashed #cbd5e1;
             border-radius: 14px;
             background: #f8fafc;
@@ -2753,8 +2754,8 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
         }
 
         .panel-dropdown-summary {
-            min-height: 88px;
-            padding: 26px 30px;
+            min-height: 54px;
+            padding: 14px 22px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -2782,7 +2783,7 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
 
         .panel-dropdown-body {
             border-top: 1px solid #e5eaf1;
-            padding: 24px 30px 30px;
+            padding: 16px 22px 22px;
         }
 
         .page-presidencia .pres-overview-table th,
@@ -2834,8 +2835,8 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
         }
 
         .title-icon {
-            width: 28px;
-            height: 28px;
+            width: 22px;
+            height: 22px;
             color: #334155;
             flex: 0 0 auto;
         }
