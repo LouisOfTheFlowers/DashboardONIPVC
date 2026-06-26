@@ -8,7 +8,7 @@
     "card_colors": {
         "success": "#22c55e",
         "warning": "#eab308",
-        "critical": "#ef4444"
+        "critical": "#ff2600"
     },
     "card_panels": [
         {
@@ -243,11 +243,12 @@
     "estados_pucs": [
         {
             "min": 0,
-            "max": 120,
-            "color": "success"
+            "max": 10,
+            "color": "success",
+            "label": "teste"
         },
         {
-            "min": 121,
+            "min": 11,
             "max": 300,
             "color": "warning"
         },

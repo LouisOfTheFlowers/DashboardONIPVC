@@ -2187,7 +2187,7 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
         }
 
         .topbar {
-            padding: 18px 36px 0;
+            padding: 14px 36px 0;
             border-bottom: 1px solid #d6dbe3;
             position: sticky;
             top: 74px;
@@ -2198,19 +2198,19 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
         .tabs {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px 12px;
+            gap: 8px 10px;
             padding-bottom: 6px;
         }
 
         .tab {
             display: inline-flex;
             align-items: center;
-            padding: 10px 12px;
+            padding: 7px 10px;
             border-radius: 0;
             border: 1px solid transparent;
             background: transparent;
             color: #111827;
-            font-size: 0.96rem;
+            font-size: 0.82rem;
             font-weight: 600;
             text-decoration: none;
         }
@@ -2264,7 +2264,7 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
         .hero-copy h1 {
             display: flex;
             margin-top: 15px;
-            font-size: clamp(1.3rem, 2.5vw, 1.75rem);
+            font-size: clamp(1.05rem, 2vw, 1.35rem);
             letter-spacing: -0.05em;
             line-height: 0.95;
         }
@@ -2272,14 +2272,14 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
         .hero-controls {
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 12px;
             padding-top: 6px;
         }
 
         .filter-form {
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 12px;
         }
 
         .filter-dropdown {
@@ -2290,16 +2290,16 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
             display: inline-flex;
             align-items: center;
             justify-content: space-between;
-            min-width: 226px;
-            height: 44px;
-            padding: 0 16px;
+            min-width: 176px;
+            height: 36px;
+            padding: 0 12px;
             border: 0;
-            border-radius: 10px;
+            border-radius: 8px;
             background: #f2f2f4;
             color: #111827;
-            font-size: 0.96rem;
+            font-size: 0.78rem;
             font-weight: 600;
-            gap: 16px;
+            gap: 12px;
             cursor: pointer;
         }
 
@@ -2311,10 +2311,10 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
             position: absolute;
             top: calc(100% + 8px);
             left: 0;
-            min-width: 226px;
-            padding: 8px;
+            min-width: 176px;
+            padding: 6px;
             border: 1px solid #d9e1ec;
-            border-radius: 14px;
+            border-radius: 10px;
             background: #fff;
             box-shadow: 0 14px 30px rgba(15, 35, 68, 0.12);
             opacity: 0;
@@ -2341,8 +2341,8 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
             background: transparent;
             color: #111827;
             text-align: left;
-            padding: 12px 14px;
-            font-size: 0.96rem;
+            padding: 9px 10px;
+            font-size: 0.78rem;
             cursor: pointer;
         }
 
@@ -2517,15 +2517,13 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
         }
 
         .pessoal-grid-two {
-            grid-template-columns: repeat(2, 180px);
-            justify-content: center;
-            column-gap: clamp(90px, 18vw, 260px);
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 18px;
         }
 
         .pessoal-grid-three {
-            grid-template-columns: repeat(3, 170px);
-            justify-content: center;
-            column-gap: clamp(55px, 8vw, 120px);
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 18px;
         }
 
         .pessoal-card,
@@ -2588,10 +2586,8 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
 
         .doc-grid {
             display: grid;
-            grid-template-columns: repeat(2, minmax(160px, 180px));
-            justify-content: center;
-            column-gap: clamp(80px, 18vw, 260px);
-            row-gap: 18px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 18px;
         }
 
         .doc-card {
@@ -2611,7 +2607,8 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
 
         .gac-list {
             display: grid;
-            gap: 8px;
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+            gap: 12px;
         }
 
         .gac-scroll-list {
@@ -2682,62 +2679,27 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
         }
 
         .pres-overview-stats.three {
-            grid-template-columns: repeat(3, minmax(0, 180px));
-            justify-content: space-between;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
         }
 
         .pres-overview-stats.two {
-            grid-template-columns: repeat(2, minmax(0, 180px));
-            justify-content: space-between;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
         .pres-overview-card {
             width: 100%;
-            max-width: 180px;
+            max-width: none;
             min-height: 0;
             padding: 16px 18px;
         }
 
-        .page-dir_uo .pres-overview-stats.two {
-            grid-template-columns: repeat(2, minmax(0, 180px));
-            justify-content: center;
-            column-gap: clamp(90px, 18vw, 260px);
-            row-gap: 18px;
+        .pres-overview-card .summary-label {
+            font-size: 0.74rem;
+            line-height: 1.25;
         }
 
-        .page-dir_uo .pres-overview-stats.three {
-            grid-template-columns: repeat(3, minmax(0, 180px));
-            justify-content: center;
-            column-gap: clamp(70px, 10vw, 150px);
-            row-gap: 18px;
-        }
-
-        .page-docente .pres-overview-stats.two {
-            grid-template-columns: repeat(2, minmax(0, 180px));
-            justify-content: center;
-            column-gap: clamp(90px, 18vw, 260px);
-            row-gap: 18px;
-        }
-
-        .page-docente .pres-overview-stats.three {
-            grid-template-columns: repeat(3, minmax(0, 180px));
-            justify-content: center;
-            column-gap: clamp(70px, 10vw, 150px);
-            row-gap: 18px;
-        }
-
-        .page-cc .pres-overview-stats.two {
-            grid-template-columns: repeat(2, minmax(0, 180px));
-            justify-content: center;
-            column-gap: clamp(90px, 18vw, 260px);
-            row-gap: 18px;
-        }
-
-        .page-cc .pres-overview-stats.three {
-            grid-template-columns: repeat(3, minmax(0, 180px));
-            justify-content: center;
-            column-gap: clamp(70px, 10vw, 150px);
-            row-gap: 18px;
+        .pres-overview-card .summary-value {
+            font-size: 1.55rem;
         }
 
         .pres-overview-table th,
@@ -2747,13 +2709,13 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
 
         .pres-overview-table th {
             background: #f8fafc;
-            font-size: 0.82rem;
+            font-size: 0.72rem;
             font-weight: 700;
             color: #5c6d86;
         }
 
         .pres-overview-table td {
-            font-size: 0.95rem;
+            font-size: 0.78rem;
         }
 
         .pres-overview-table .uo-column {
@@ -2774,6 +2736,53 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
         .pres-overview-table .metric-cell {
             text-align: center;
             font-weight: 700;
+        }
+
+        .panel-dropdown {
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .panel-dropdown summary {
+            list-style: none;
+            cursor: pointer;
+        }
+
+        .panel-dropdown summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .panel-dropdown-summary {
+            min-height: 88px;
+            padding: 26px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .panel-dropdown-summary .panel-title {
+            margin: 0;
+            font-size: 0.96rem;
+        }
+
+        .panel-dropdown-toggle {
+            width: 22px;
+            height: 22px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #64748b;
+            transition: transform 0.16s ease;
+        }
+
+        .panel-dropdown[open] .panel-dropdown-toggle {
+            transform: rotate(180deg);
+        }
+
+        .panel-dropdown-body {
+            border-top: 1px solid #e5eaf1;
+            padding: 24px 30px 30px;
         }
 
         .page-presidencia .pres-overview-table th,
@@ -2813,13 +2822,13 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
             align-items: center;
             gap: 12px;
             margin: 0 0 18px;
-            font-size: 1.18rem;
+            font-size: 0.96rem;
             letter-spacing: -0.04em;
         }
 
         .panel-title small {
             color: var(--muted);
-            font-size: 0.95rem;
+            font-size: 0.78rem;
             font-weight: 500;
             letter-spacing: normal;
         }
@@ -3032,19 +3041,19 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
         }
 
         .entry-title {
-            font-size: 0.98rem;
+            font-size: 0.82rem;
             line-height: 1.35;
         }
 
         .entry-subtitle,
         .entry-state,
         .entry-meta {
-            font-size: 0.82rem;
+            font-size: 0.72rem;
             opacity: 0.9;
         }
 
         .replacement-card .entry-title {
-            font-size: 0.95rem;
+            font-size: 0.8rem;
         }
 
         .ucs-shell {
@@ -3077,7 +3086,7 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
             gap: 10px;
             margin-bottom: 10px;
             color: var(--muted);
-            font-size: 1rem;
+            font-size: 0.78rem;
         }
 
         .sigla-tag {
@@ -3090,6 +3099,7 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
             background: #edf1f7;
             color: #27415f;
             font-weight: 700;
+            font-size: 0.78rem;
         }
 
         .uc-item {
@@ -3097,6 +3107,7 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
             border-left: 3px solid #d9e1ec;
             border-radius: 0 12px 12px 0;
             background: #f8fafc;
+            font-size: 0.82rem;
         }
 
         .muted {
@@ -3222,7 +3233,7 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
             th,
             td {
                 padding: 14px 12px;
-                font-size: 0.95rem;
+                font-size: 0.82rem;
             }
 
             .panel {
@@ -3487,11 +3498,20 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                         <?php if ($configuredOverviewPanels !== []): ?>
                             <?php foreach ($configuredOverviewPanels as $overviewPanel): ?>
                                 <?php $items = is_array($overviewPanel['items'] ?? null) ? $overviewPanel['items'] : []; ?>
-                                <section class="panel" data-sortable-panel data-panel-id="<?= e((string) ($overviewPanel['id'] ?? $overviewPanel['title'] ?? 'overview')) ?>" draggable="true">
-                                    <h2 class="panel-title">
-                                        <?= panelIconSvg((string) ($overviewPanel['icon'] ?? 'chart')) ?>
-                                        <?= e((string) ($overviewPanel['title'] ?? '')) ?>
-                                    </h2>
+                                <details class="panel panel-dropdown" data-sortable-panel data-panel-id="<?= e((string) ($overviewPanel['id'] ?? $overviewPanel['title'] ?? 'overview')) ?>" draggable="true">
+                                    <summary>
+                                        <div class="panel-dropdown-summary">
+                                            <h2 class="panel-title">
+                                                <?= panelIconSvg((string) ($overviewPanel['icon'] ?? 'chart')) ?>
+                                                <?= e((string) ($overviewPanel['title'] ?? '')) ?>
+                                            </h2>
+                                            <svg class="panel-dropdown-toggle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                <path d="M6 9l6 6 6-6"></path>
+                                            </svg>
+                                        </div>
+                                    </summary>
+
+                                    <div class="panel-dropdown-body">
 
                                     <?php if ($items !== []): ?>
                                         <?php $statsClass = count($items) === 3 ? 'three' : (count($items) === 2 ? 'two' : ''); ?>
@@ -3544,7 +3564,8 @@ $autoDetailPanels = buildDetailTablePanels($grupos, $renderedGroupLookup, $selec
                                     <?php else: ?>
                                         <p class="muted">Sem dados para apresentar.</p>
                                     <?php endif; ?>
-                                </section>
+                                    </div>
+                                </details>
                             <?php endforeach; ?>
                         <?php else: ?>
                             <section class="panel" data-sortable-panel data-panel-id="aulas" draggable="true">
